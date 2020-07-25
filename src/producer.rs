@@ -23,7 +23,7 @@ impl NSQProducer {
         }
     }
 
-    pub async fn consume(&mut self) -> Result<NSQEvent, &'static str> {
+    pub async fn consume(&mut self) -> Option<NSQEvent> {
         return self.connection.consume().await;
     }
 

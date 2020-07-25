@@ -645,11 +645,8 @@ impl NSQDConnection {
         };
     }
 
-    pub async fn consume(&mut self) -> Result<NSQEvent, &'static str> {
-        match self.from_connection_rx.recv().await {
-            Some(message) => Result::Ok(message),
-            None          => Result::Err("queue closed"),
-        }
+    pub async fn consume(&mut self) -> Option<NSQEvent> {
+        self.from_connection_rx.recv().await
     }
 
     pub fn publish(&mut self, topic: String, value: Vec<u8>) {
