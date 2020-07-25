@@ -107,6 +107,39 @@ async fn lookup_supervisor(
     }
 }
 
+async fn rebalancer_step(
+    max_in_flight: u32,
+    clients_ref:   &std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
+) {
+    let mut guard = clients_ref.lock().unwrap();
+
+    let mut healthy = Vec::new();
+
+    for (_, node) in guard.iter_mut() {
+        if node.connection.healthy() {
+            healthy.push(&mut node.connection);
+        }
+    }
+
+    if healthy.len() == 0 {
+        return;
+    }
+
+    let partial = max_in_flight / (healthy.len() as u32);
+
+    let partial = if partial == 0 {
+        1
+    } else {
+        partial
+    };
+
+    trace!("healthy count: {} {}", healthy.len(), partial);
+
+    for node in healthy.iter_mut() {
+        NSQDConnection::ready(*node, partial as u16).unwrap();
+    }
+}
+
 async fn rebalancer(
     max_in_flight: u32,
     clients_ref:   std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
@@ -114,27 +147,7 @@ async fn rebalancer(
     loop {
         trace!("rebalancer iter");
 
-        {
-            let mut guard = clients_ref.lock().unwrap();
-
-            let mut healthy = Vec::new();
-
-            for (_, node) in guard.iter_mut() {
-                if node.connection.healthy() {
-                    healthy.push(&mut node.connection);
-                }
-            }
-
-            if healthy.len() != 0 {
-                let partial = max_in_flight / (healthy.len() as u32);
-
-                trace!("healthy count: {} {}", healthy.len(), partial);
-
-                for node in healthy.iter_mut() {
-                    NSQDConnection::ready(* node, partial as u16).unwrap();
-                }
-            }
-        }
+        rebalancer_step(max_in_flight, &clients_ref).await;
 
         tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
     }
