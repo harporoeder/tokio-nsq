@@ -90,7 +90,6 @@ async fn lookup(
 }
 
 async fn lookup_supervisor(
-    shutdown_rx:         tokio::sync::oneshot::Receiver<()>,
     address:             String,
     config:              NSQConsumerConfig,
     clients_ref:         std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
@@ -156,21 +155,22 @@ impl NSQConsumer {
             },
             NSQConsumerConfigSources::Lookup(nodes) => {
                 for node in nodes.addresses.iter() {
-                    let clients_ref_dupe         = pool.clients_ref.clone();
-                    let from_connections_tx_dupe = from_connections_tx.clone();
-                    let config_dupe              = config.clone();
-                    let address_dupe             = node.clone();
-                    let (write_shutdown, read_shutdown) = tokio::sync::oneshot::channel();
+                    let clients_ref_dupe           = pool.clients_ref.clone();
+                    let from_connections_tx_dupe   = from_connections_tx.clone();
+                    let config_dupe                = config.clone();
+                    let address_dupe               = node.clone();
+                    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
 
-                    pool.oneshots.push(write_shutdown);
+                    pool.oneshots.push(shutdown_tx);
 
                     tokio::spawn(async move {
-                        lookup_supervisor(
-                            read_shutdown,
-                            address_dupe,
-                            config_dupe,
-                            clients_ref_dupe,
-                            from_connections_tx_dupe
+                        with_stopper(shutdown_rx,
+                            lookup_supervisor(
+                                address_dupe,
+                                config_dupe,
+                                clients_ref_dupe,
+                                from_connections_tx_dupe
+                            )
                         ).await;
                     });
                 }

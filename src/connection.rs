@@ -510,42 +510,44 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     return Ok(());
 }
 
-async fn run_connection_supervisor(
+pub async fn with_stopper(
     mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    mut state:       NSQDConnectionState
+    operation:       impl std::future::Future
 ) {
+    tokio::select! {
+        _ = shutdown_rx => {
+            info!("stopper operation stopped via oneshot");
+        },
+        _ = operation => {
+            info!("stopper operation finished naturally");
+        }
+    }
+}
+
+async fn run_connection_supervisor(mut state: NSQDConnectionState) {
     loop {
-        tokio::select! {
-            _ = handle_stop(&mut shutdown_rx) => {
-                trace!("run_connection_supervisor got stop");
+        match run_connection(&mut state).await {
+            Err(generic) => {
+                &state.shared.healthy.store(false, Ordering::SeqCst);
 
-                return;
-            },
-            status = run_connection(&mut state) => {
-                match status {
-                    Err(generic) => {
-                        &state.shared.healthy.store(false, Ordering::SeqCst);
+                let _ = state.from_connection_tx.send(NSQEvent::Unhealthy());
 
-                        let _ = state.from_connection_tx.send(NSQEvent::Unhealthy());
+                if let Some(error) = generic.downcast_ref::<tokio::io::Error>() {
+                    trace!("tokio io error: {}", error);
 
-                        if let Some(error) = generic.downcast_ref::<tokio::io::Error>() {
-                            trace!("tokio io error: {}", error);
+                    tokio::time::delay_for(std::time::Duration::new(5, 0)).await;
+                } else if let Some(error) = generic.downcast_ref::<serde_json::Error>() {
+                    trace!("serde json error: {}", error);
 
-                            tokio::time::delay_for(std::time::Duration::new(5, 0)).await;
-                        } else if let Some(error) = generic.downcast_ref::<serde_json::Error>() {
-                            trace!("serde json error: {}", error);
+                    return;
+                } else {
+                    trace!("unknown error {}", generic);
 
-                            return;
-                        } else {
-                            trace!("unknown error {}", generic);
-
-                            return;
-                        }
-                    },
-                    _ => {
-                        return;
-                    }
+                    return;
                 }
+            },
+            _ => {
+                return;
             }
         }
     }
@@ -601,13 +603,15 @@ impl NSQDConnection {
         let shared_state_clone = shared_state.clone();
 
         tokio::spawn(async move {
-            run_connection_supervisor(read_shutdown, NSQDConnectionState {
-                config:               config,
-                from_connection_tx:   from_connection_tx,
-                to_connection_rx:     to_connection_rx,
-                to_connection_tx_ref: to_connection_tx_ref_1,
-                shared:               shared_state_clone,
-            }).await;
+            with_stopper(read_shutdown,
+                run_connection_supervisor(NSQDConnectionState {
+                    config:               config,
+                    from_connection_tx:   from_connection_tx,
+                    to_connection_rx:     to_connection_rx,
+                    to_connection_tx_ref: to_connection_tx_ref_1,
+                    shared:               shared_state_clone,
+                }
+            )).await;
         });
 
         return NSQDConnection {
