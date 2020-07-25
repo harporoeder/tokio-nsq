@@ -173,13 +173,13 @@ pub struct NSQTopic {
 }
 
 impl NSQTopic {
-    pub fn new<S: Into<String>>(topic: S) -> Option<Self> {
+    pub fn new<S: Into<String>>(topic: S) -> Option<Arc<Self>> {
         let topic = topic.into();
 
         if is_valid_name(&topic) {
-            Some(Self{
+            Some(Arc::new(Self{
                 topic: topic
-            })
+            }))
         } else {
             None
         }
@@ -192,13 +192,13 @@ pub struct NSQChannel {
 }
 
 impl NSQChannel {
-    pub fn new<S: Into<String>>(channel: S) -> Option<Self> {
+    pub fn new<S: Into<String>>(channel: S) -> Option<Arc<Self>> {
         let channel = channel.into();
 
         if is_valid_name(&channel) {
-            Some(Self{
+            Some(Arc::new(Self{
                 channel: channel
-            })
+            }))
         } else {
             None
         }
