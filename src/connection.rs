@@ -554,9 +554,15 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
 }
 
 #[derive(Debug, Clone)]
+pub struct NSQDConfigTLS {
+
+}
+
+#[derive(Debug, Clone)]
 pub struct NSQDConfig {
     pub address:   String,
     pub subscribe: Option<(String, String)>,
+    pub tls:       Option<NSQDConfigTLS>,
 }
 
 pub struct NSQDConnection {

@@ -18,6 +18,7 @@ impl NSQProducer {
             connection: NSQDConnection::new(NSQDConfig {
                 address:   config.address,
                 subscribe: None,
+                tls:       None,
             })
         }
     }

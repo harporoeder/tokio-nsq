@@ -67,6 +67,7 @@ async fn lookup(
                     NSQDConfig {
                         address:   address.clone(),
                         subscribe: Some((config.topic.clone(), config.channel.clone())),
+                        tls:       config.tls.clone(),
                     },
                     from_connections_tx.clone()
                 );
@@ -120,10 +121,10 @@ pub enum NSQConsumerConfigSources {
 
 #[derive(Clone)]
 pub struct NSQConsumerConfig {
-    pub address: String,
     pub topic:   String,
     pub channel: String,
-    pub sources: NSQConsumerConfigSources
+    pub sources: NSQConsumerConfigSources,
+    pub tls:     Option<NSQDConfigTLS>,
 }
 
 struct NSQConnectionMeta {
