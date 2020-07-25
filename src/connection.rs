@@ -401,67 +401,12 @@ async fn handle_stop(stop: &mut tokio::sync::oneshot::Receiver<()>) {
     let _ = stop.await;
 }
 
-async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
-    let mut stream = tokio::net::TcpStream::connect(state.config.address.clone()).await?;
-
-    let identify_body = IdentifyBody {
-        client_id:           "my-client-id".to_string(),
-        hostname:            "my-hostname".to_string(),
-        user_agent:          "rustnsq/0.1.0".to_string(),
-        feature_negotiation: true,
-        tls_v1:              false,
-        deflate:             false,
-    };
-
-    let serialized = serde_json::to_string(&identify_body)?;
-    trace!("serialized = {}", serialized);
-
-    let count = u32::try_from(serialized.len())?.to_be_bytes();
-
-    stream.write_all(b"  V2").await?;
-    stream.write_all(b"IDENTIFY\n").await?;
-    stream.write_all(&count).await?;
-    stream.write_all(serialized.as_bytes()).await?;
-
-    match read_frame_data(&mut stream).await? {
-        Frame::Response(body) => {
-            let _settings: IdentifyResponse = serde_json::from_slice(&body)?;
-        }
-        _ => {
-            error!("expected response 1");
-
-            return Ok(());
-        }
-    }
-
-    /*
-    let verifier = Arc::new(Unverified{});
-
-    let mut config = ClientConfig::new();
-    config.dangerous().set_certificate_verifier(verifier);
-
-    let config = TlsConnector::from(Arc::new(config));
-    let dnsname = DNSNameRef::try_from_ascii_str("abctest.com").unwrap();
-
-    let mut stream = config.connect(dnsname, stream).await?;
-    */
-
-    // let mut stream_rx = FuturesAsyncReadCompatExt::compat(stream_rx);
-
+async fn run_generic<S: AsyncWrite + AsyncRead + std::marker::Unpin>(
+    state: &mut NSQDConnectionState,
+    mut stream: S,
+) -> Result<(), Error>
+{
     let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
-
-    /*
-    match read_frame_data(&mut stream_rx).await? {
-        Frame::Response(body) => {
-            error!("got response 1");
-        }
-        _ => {
-            error!("expected response 2");
-
-            return Ok(());
-        }
-    }
-    */
 
     match &state.config.subscribe {
         Some((channel, topic)) => {
@@ -506,6 +451,69 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     };
 
     error!("unexpected end");
+
+    return Ok(());
+}
+
+async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
+    let mut stream = tokio::net::TcpStream::connect(state.config.address.clone()).await?;
+
+    let identify_body = IdentifyBody {
+        client_id:           "my-client-id".to_string(),
+        hostname:            "my-hostname".to_string(),
+        user_agent:          "rustnsq/0.1.0".to_string(),
+        feature_negotiation: true,
+        tls_v1:              state.config.tls.is_some(),
+        deflate:             false,
+    };
+
+    let serialized = serde_json::to_string(&identify_body)?;
+    trace!("serialized = {}", serialized);
+
+    let count = u32::try_from(serialized.len())?.to_be_bytes();
+
+    stream.write_all(b"  V2").await?;
+    stream.write_all(b"IDENTIFY\n").await?;
+    stream.write_all(&count).await?;
+    stream.write_all(serialized.as_bytes()).await?;
+
+    match read_frame_data(&mut stream).await? {
+        Frame::Response(body) => {
+            let _settings: IdentifyResponse = serde_json::from_slice(&body)?;
+        }
+        _ => {
+            error!("expected response 1");
+
+            return Ok(());
+        }
+    }
+
+    if let Some(_) = &state.config.tls {
+        let verifier = Arc::new(Unverified{});
+
+        let mut config = ClientConfig::new();
+        config.dangerous().set_certificate_verifier(verifier);
+
+        let config = TlsConnector::from(Arc::new(config));
+        let dnsname = DNSNameRef::try_from_ascii_str("abctest.com").unwrap();
+
+        let mut stream = config.connect(dnsname, stream).await?;
+
+        match read_frame_data(&mut stream).await? {
+            Frame::Response(body) => {
+                error!("got response 1");
+            }
+            _ => {
+                error!("expected response 2");
+
+                return Ok(());
+            }
+        }
+
+        run_generic(state, stream).await?;
+    } else {
+        run_generic(state, stream).await?;
+    };
 
     return Ok(());
 }
