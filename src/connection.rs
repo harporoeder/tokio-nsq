@@ -1,7 +1,6 @@
 use super::*;
 
 use std::sync::atomic::{AtomicU64};
-use std::convert::TryInto;
 use tokio_rustls::webpki::DNSNameRef;
 use rustls::*;
 use tokio_rustls::{ TlsConnector, rustls::ClientConfig };
@@ -42,7 +41,6 @@ struct IdentifyBody {
     user_agent:          String,
     feature_negotiation: bool,
     tls_v1:              bool,
-    deflate:             bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -476,7 +474,6 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         user_agent:          "rustnsq/0.1.0".to_string(),
         feature_negotiation: true,
         tls_v1:              state.config.tls.is_some(),
-        deflate:             false,
     };
 
     let serialized = serde_json::to_string(&identify_body)?;
