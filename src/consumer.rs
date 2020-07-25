@@ -31,7 +31,7 @@ async fn lookup(
     from_connections_tx: &tokio::sync::mpsc::UnboundedSender<NSQEvent>
 ) -> Result<(), Error>
 {
-    let raw_uri = (address.to_owned() + "/lookup?topic=" + &config.topic).to_string();
+    let raw_uri = (address.to_owned() + "/lookup?topic=" + &config.topic.topic).to_string();
 
     let uri = raw_uri.parse::<hyper::Uri>()?;
 
@@ -177,8 +177,8 @@ pub enum NSQConsumerConfigSources {
 
 #[derive(Clone)]
 pub struct NSQConsumerConfig {
-    pub topic:         String,
-    pub channel:       String,
+    pub topic:         Arc<NSQTopic>,
+    pub channel:       Arc<NSQChannel>,
     pub sources:       NSQConsumerConfigSources,
     pub tls:           Option<NSQDConfigTLS>,
     pub max_in_flight: u32,

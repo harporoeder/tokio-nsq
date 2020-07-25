@@ -14,7 +14,7 @@ async fn main() {
     let _ = TermLogger::init(LevelFilter::Trace, logging_config, TerminalMode::Mixed);
 
     let topic    = NSQTopic::new("names").unwrap();
-    let _channel = NSQChannel::new("first").unwrap();
+    let channel = NSQChannel::new("first").unwrap();
 
     {
         let mut producer = NSQProducer::new(NSQProducerConfig{
@@ -39,8 +39,8 @@ async fn main() {
     addresses.insert("http://127.0.0.1:4161".to_string());
 
     let mut consumer = NSQConsumer::new(NSQConsumerConfig{
-        topic:        "names".to_string(),
-        channel:      "first".to_string(),
+        topic:         topic,
+        channel:       channel,
         tls:           Some(NSQDConfigTLS{}),
         max_in_flight: 15,
         sources: NSQConsumerConfigSources::Lookup(NSQConsumerLookupConfig {

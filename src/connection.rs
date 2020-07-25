@@ -22,7 +22,7 @@ fn is_valid_name(name: &String) -> bool {
 
 #[derive(Clone, Debug)]
 pub struct NSQTopic {
-    topic: String
+    pub topic: String
 }
 
 impl NSQTopic {
@@ -41,7 +41,7 @@ impl NSQTopic {
 
 #[derive(Clone, Debug)]
 pub struct NSQChannel {
-    channel: String
+    pub channel: String
 }
 
 impl NSQChannel {
@@ -114,7 +114,7 @@ struct IdentifyResponse {
 pub enum MessageToNSQ {
     NOP,
     PUB(Arc<NSQTopic>, Vec<u8>),
-    SUB(String, String),
+    SUB(Arc<NSQTopic>, Arc<NSQChannel>),
     RDY(u16),
     FIN([u8; 16]),
     REQ([u8; 16]),
@@ -397,9 +397,9 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
             trace!("MessageToNSQ::SUB");
 
             stream.write_all(b"SUB ").await?;
-            stream.write_all(topic.as_bytes()).await?;
+            stream.write_all(topic.topic.as_bytes()).await?;
             stream.write_all(b" ").await?;
-            stream.write_all(channel.as_bytes()).await?;
+            stream.write_all(channel.channel.as_bytes()).await?;
             stream.write_all(b"\n").await?;
         },
         MessageToNSQ::RDY(count) => {
@@ -478,9 +478,7 @@ async fn run_generic<S: AsyncWrite + AsyncRead + std::marker::Unpin>(
 
     state.from_connection_tx.send(NSQEvent::Healthy())?;
 
-
     trace!("starting main loop");
-
 
     let f1 = handle_command(&state.shared, &mut state.to_connection_rx, &mut stream_tx);
     let f2 = handle_reads(&mut stream_rx, &state.shared, &mut state.from_connection_tx);
@@ -616,7 +614,7 @@ pub struct NSQDConfigTLS {
 #[derive(Debug, Clone)]
 pub struct NSQDConfig {
     pub address:   String,
-    pub subscribe: Option<(String, String)>,
+    pub subscribe: Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
     pub tls:       Option<NSQDConfigTLS>,
 }
 
