@@ -182,10 +182,7 @@ impl NSQConsumer {
     }
 
     pub async fn consume(&mut self) -> Option<NSQEvent> {
-        match self.from_connections_rx.recv().await {
-            Some(message) => Some(message),
-            None          => None,
-        }
+        self.from_connections_rx.recv().await
     }
 
     pub async fn consume_filtered(&mut self) -> Option<MessageFromNSQ> {
