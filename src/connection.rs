@@ -5,6 +5,18 @@ use std::convert::TryInto;
 use tokio_rustls::webpki::DNSNameRef;
 use rustls::*;
 use tokio_rustls::{ TlsConnector, rustls::ClientConfig };
+use failure::Fail;
+use std::fmt;
+
+
+#[derive(Debug, Fail)]
+struct NoneError;
+
+impl fmt::Display for NoneError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
 
 struct Unverified {}
 
@@ -390,7 +402,7 @@ async fn handle_command<S: AsyncWrite + std::marker::Unpin>(
     error!("handle_commands_loop");
 
     loop {
-        let message = to_connection_rx.recv().await.unwrap();
+        let message = to_connection_rx.recv().await.ok_or(NoneError)?;
         trace!("to_connection_rx got message");
 
         handle_single_command(shared, message, stream).await?;
@@ -495,7 +507,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         config.dangerous().set_certificate_verifier(verifier);
 
         let config = TlsConnector::from(Arc::new(config));
-        let dnsname = DNSNameRef::try_from_ascii_str("abctest.com").unwrap();
+        let dnsname = DNSNameRef::try_from_ascii_str("abctest.com")?;
 
         let mut stream = config.connect(dnsname, stream).await?;
 
