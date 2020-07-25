@@ -131,7 +131,7 @@ async fn rebalancer(
                 trace!("healthy count: {} {}", healthy.len(), partial);
 
                 for node in healthy.iter_mut() {
-                    NSQDConnection::ready(* node, partial as u16);
+                    NSQDConnection::ready(* node, partial as u16).unwrap();
                 }
             }
         }
