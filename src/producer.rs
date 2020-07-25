@@ -3,11 +3,12 @@ use super::*;
 use connection::*;
 
 pub struct NSQProducerConfig {
-    pub address: String
+    pub address: String,
+    pub tls:     Option<NSQDConfigTLS>,
 }
 
 pub struct NSQProducer {
-    connection: NSQDConnection
+    connection: NSQDConnection,
 }
 
 impl NSQProducer {
@@ -18,7 +19,7 @@ impl NSQProducer {
             connection: NSQDConnection::new(NSQDConfig {
                 address:   config.address,
                 subscribe: None,
-                tls:       None,
+                tls:       config.tls,
             })
         }
     }

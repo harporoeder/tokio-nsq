@@ -16,6 +16,7 @@ async fn main() {
     {
         let mut producer = NSQProducer::new(NSQProducerConfig{
             address: "127.0.0.1:4150".to_string(),
+            tls:     Some(NSQDConfigTLS{}),
         });
 
         println!("waiting on status");
