@@ -1,6 +1,72 @@
 use super::*;
 use connection::*;
 
+#[derive(Clone)]
+pub struct NSQConsumerLookupConfig {
+    pub poll_interval: std::time::Duration,
+    pub addresses:     HashSet<String>
+}
+
+#[derive(Clone)]
+pub enum NSQConsumerConfigSources {
+    Daemons(Vec<String>),
+    Lookup(NSQConsumerLookupConfig)
+}
+
+#[derive(Clone)]
+pub struct NSQConsumerConfig {
+    topic:         Arc<NSQTopic>,
+    channel:       Arc<NSQChannel>,
+    sources:       NSQConsumerConfigSources,
+    tls:           Option<NSQDConfigTLS>,
+    max_in_flight: u32,
+}
+
+impl NSQConsumerConfig {
+    pub fn new(topic: Arc<NSQTopic>, channel: Arc<NSQChannel>) -> Self {
+        return NSQConsumerConfig {
+            topic:         topic,
+            channel:       channel,
+            sources:       NSQConsumerConfigSources::Daemons(Vec::new()),
+            tls:           None,
+            max_in_flight: 1,
+        }
+    }
+
+    pub fn set_max_in_flight(mut self, max_in_flight: u32) -> Self {
+        self.max_in_flight = max_in_flight;
+
+        return self;
+    }
+
+    pub fn set_tls(mut self, tls: NSQDConfigTLS) -> Self {
+        self.tls = Some(tls);
+
+        return self;
+    }
+
+    pub fn set_sources(mut self, sources: NSQConsumerConfigSources) -> Self {
+        self.sources = sources;
+
+        return self;
+    }
+
+    pub fn build(self) -> NSQConsumer {
+        return NSQConsumer::new(self);
+    }
+}
+
+struct NSQConnectionMeta {
+    connection: NSQDConnection,
+    found_by:   HashSet<String>,
+}
+
+pub struct NSQConsumer {
+    from_connections_rx: tokio::sync::mpsc::UnboundedReceiver<NSQEvent>,
+    clients_ref:         std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
+    oneshots:            Vec<tokio::sync::oneshot::Sender<()>>
+}
+
 #[derive(serde::Deserialize)]
 struct LookupResponseProducer {
     broadcast_address: String,
@@ -151,48 +217,6 @@ async fn rebalancer(
 
         tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
     }
-}
-
-pub struct NSQConsumerConfigBuilder {
-
-}
-
-impl NSQConsumerConfigBuilder {
-    pub fn new() -> Self {
-        return Self{};
-    }
-}
-
-#[derive(Clone)]
-pub struct NSQConsumerLookupConfig {
-    pub poll_interval: std::time::Duration,
-    pub addresses:     HashSet<String>
-}
-
-#[derive(Clone)]
-pub enum NSQConsumerConfigSources {
-    Daemons(Vec<String>),
-    Lookup(NSQConsumerLookupConfig)
-}
-
-#[derive(Clone)]
-pub struct NSQConsumerConfig {
-    pub topic:         Arc<NSQTopic>,
-    pub channel:       Arc<NSQChannel>,
-    pub sources:       NSQConsumerConfigSources,
-    pub tls:           Option<NSQDConfigTLS>,
-    pub max_in_flight: u32,
-}
-
-struct NSQConnectionMeta {
-    connection: NSQDConnection,
-    found_by:   HashSet<String>,
-}
-
-pub struct NSQConsumer {
-    from_connections_rx: tokio::sync::mpsc::UnboundedReceiver<NSQEvent>,
-    clients_ref:         std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
-    oneshots:            Vec<tokio::sync::oneshot::Sender<()>>
 }
 
 impl NSQConsumer {

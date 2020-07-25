@@ -13,7 +13,7 @@ async fn main() {
 
     let _ = TermLogger::init(LevelFilter::Trace, logging_config, TerminalMode::Mixed);
 
-    let topic    = NSQTopic::new("names").unwrap();
+    let topic   = NSQTopic::new("names").unwrap();
     let channel = NSQChannel::new("first").unwrap();
 
     {
@@ -38,16 +38,16 @@ async fn main() {
     let mut addresses = HashSet::new();
     addresses.insert("http://127.0.0.1:4161".to_string());
 
-    let mut consumer = NSQConsumer::new(NSQConsumerConfig{
-        topic:         topic,
-        channel:       channel,
-        tls:           Some(NSQDConfigTLS{}),
-        max_in_flight: 15,
-        sources: NSQConsumerConfigSources::Lookup(NSQConsumerLookupConfig {
-            poll_interval: std::time::Duration::new(5, 0),
-            addresses:     addresses,
-        }),
-    });
+    let mut consumer = NSQConsumerConfig::new(topic, channel)
+        .set_max_in_flight(15)
+        .set_tls(NSQDConfigTLS{})
+        .set_sources(
+            NSQConsumerConfigSources::Lookup(NSQConsumerLookupConfig {
+                poll_interval: std::time::Duration::new(5, 0),
+                addresses:     addresses,
+            }
+        ))
+        .build();
 
     loop {
         let mut message = consumer.consume_filtered().await.unwrap();
