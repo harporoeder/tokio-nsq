@@ -6,7 +6,57 @@ use rustls::*;
 use tokio_rustls::{ TlsConnector, rustls::ClientConfig };
 use failure::Fail;
 use std::fmt;
+use regex::Regex;
 
+lazy_static! {
+    static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
+}
+
+fn is_valid_name(name: &String) -> bool {
+    if name.len() < 1 || name.len() > 64 {
+        return false;
+    }
+
+    return NAMEREGEX.is_match(name);
+}
+
+#[derive(Clone, Debug)]
+pub struct NSQTopic {
+    topic: String
+}
+
+impl NSQTopic {
+    pub fn new<S: Into<String>>(topic: S) -> Option<Arc<Self>> {
+        let topic = topic.into();
+
+        if is_valid_name(&topic) {
+            Some(Arc::new(Self{
+                topic: topic
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NSQChannel {
+    channel: String
+}
+
+impl NSQChannel {
+    pub fn new<S: Into<String>>(channel: S) -> Option<Arc<Self>> {
+        let channel = channel.into();
+
+        if is_valid_name(&channel) {
+            Some(Arc::new(Self{
+                channel: channel
+            }))
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Debug, Fail)]
 struct NoneError;
