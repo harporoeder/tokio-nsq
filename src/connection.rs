@@ -171,21 +171,9 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
     trace!("read_frame()");
 
     let mut frame_size_buffer = [0; 4];
-    let mut frame_size = 0;
-
-    loop {
-        stream.read_exact(&mut frame_size_buffer).await?;
-        frame_size = u32::from_be_bytes(frame_size_buffer);
-        trace!("frame_size = {}", frame_size);
-
-        if frame_size == 0 {
-            error!("read_frame() zero frame size skipping");
-        } else {
-            break;
-        }
-    }
-
-    frame_size = frame_size - 4;
+    stream.read_exact(&mut frame_size_buffer).await?;
+    let frame_size = u32::from_be_bytes(frame_size_buffer) - 4;
+    trace!("frame_size = {}", frame_size);
 
     let mut frame_type_buffer = [0; 4];
     stream.read_exact(&mut frame_type_buffer).await?;
@@ -412,8 +400,8 @@ async fn handle_stop(stop: &mut tokio::sync::oneshot::Receiver<()>) {
 }
 
 async fn run_generic<S: AsyncWrite + AsyncRead + std::marker::Unpin>(
-    state: &mut NSQDConnectionState,
-    mut stream: S,
+    state:  &mut NSQDConnectionState,
+    stream: S,
 ) -> Result<(), Error>
 {
     let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
@@ -509,7 +497,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         let mut stream = config.connect(dnsname, stream).await?;
 
         match read_frame_data(&mut stream).await? {
-            Frame::Response(body) => {
+            Frame::Response(_body) => {
                 error!("got response 1");
             }
             _ => {
@@ -528,8 +516,8 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 }
 
 pub async fn with_stopper(
-    mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    operation:       impl std::future::Future
+    shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+    operation:   impl std::future::Future
 ) {
     tokio::select! {
         _ = shutdown_rx => {

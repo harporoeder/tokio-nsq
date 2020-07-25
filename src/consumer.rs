@@ -14,13 +14,13 @@ struct LookupResponse {
 
 fn remove_old_connections(connections: &mut HashMap<String, NSQConnectionMeta>) {
     connections.retain(|&_, v| {
-        let empty = v.found_by.is_empty();
-
-        if (empty) {
+        if v.found_by.is_empty() {
             info!("dropping old connection");
-        }
 
-        !empty
+            return false;
+        } else {
+            return true
+        }
     });
 }
 
