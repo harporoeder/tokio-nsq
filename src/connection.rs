@@ -633,6 +633,10 @@ impl NSQDConnection {
         };
     }
 
+    pub fn healthy(&self) -> bool {
+        return self.shared.healthy.load(Ordering::SeqCst);
+    }
+
     pub async fn consume(&mut self) -> Option<NSQEvent> {
         self.from_connection_rx.recv().await
     }

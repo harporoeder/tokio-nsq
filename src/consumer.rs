@@ -107,6 +107,39 @@ async fn lookup_supervisor(
     }
 }
 
+async fn rebalancer(
+    max_in_flight: u32,
+    clients_ref:   std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
+) {
+    loop {
+        trace!("rebalancer iter");
+
+        {
+            let mut guard = clients_ref.lock().unwrap();
+
+            let mut healthy = Vec::new();
+
+            for (_, node) in guard.iter_mut() {
+                if node.connection.healthy() {
+                    healthy.push(&mut node.connection);
+                }
+            }
+
+            if healthy.len() != 0 {
+                let partial = max_in_flight / (healthy.len() as u32);
+
+                trace!("healthy count: {} {}", healthy.len(), partial);
+
+                for node in healthy.iter_mut() {
+                    NSQDConnection::ready(* node, partial as u16);
+                }
+            }
+        }
+
+        tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
+    }
+}
+
 #[derive(Clone)]
 pub struct NSQConsumerLookupConfig {
     pub poll_interval: std::time::Duration,
@@ -121,10 +154,11 @@ pub enum NSQConsumerConfigSources {
 
 #[derive(Clone)]
 pub struct NSQConsumerConfig {
-    pub topic:   String,
-    pub channel: String,
-    pub sources: NSQConsumerConfigSources,
-    pub tls:     Option<NSQDConfigTLS>,
+    pub topic:         String,
+    pub channel:       String,
+    pub sources:       NSQConsumerConfigSources,
+    pub tls:           Option<NSQDConfigTLS>,
+    pub max_in_flight: u32,
 }
 
 struct NSQConnectionMeta {
@@ -177,6 +211,15 @@ impl NSQConsumer {
                 }
             }
         }
+
+        let clients_ref_dupe           = pool.clients_ref.clone();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+
+        tokio::spawn(async move {
+            with_stopper(shutdown_rx, rebalancer(config.max_in_flight, clients_ref_dupe)).await;
+        });
+
+        pool.oneshots.push(shutdown_tx);
 
         return pool;
     }

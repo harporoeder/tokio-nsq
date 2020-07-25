@@ -36,13 +36,14 @@ async fn main() {
     addresses.insert("http://127.0.0.1:4161".to_string());
 
     let mut consumer = NSQConsumer::new(NSQConsumerConfig{
-        topic:   "names".to_string(),
-        channel: "first".to_string(),
+        topic:        "names".to_string(),
+        channel:      "first".to_string(),
+        tls:           Some(NSQDConfigTLS{}),
+        max_in_flight: 15,
         sources: NSQConsumerConfigSources::Lookup(NSQConsumerLookupConfig {
             poll_interval: std::time::Duration::new(5, 0),
             addresses:     addresses,
         }),
-        tls:     Some(NSQDConfigTLS{}),
     });
 
     loop {
