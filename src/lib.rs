@@ -8,6 +8,9 @@ extern crate byteorder;
 extern crate log;
 extern crate tokio_rustls;
 extern crate rustls;
+extern crate regex;
+#[macro_use]
+extern crate lazy_static;
 
 use std::collections::HashMap;
 use std::collections::HashSet;

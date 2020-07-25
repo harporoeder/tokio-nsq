@@ -13,6 +13,9 @@ async fn main() {
 
     let _ = TermLogger::init(LevelFilter::Trace, logging_config, TerminalMode::Mixed);
 
+    let _topic   = NSQTopic::new("names").unwrap();
+    let _channel = NSQChannel::new("first").unwrap();
+
     {
         let mut producer = NSQProducer::new(NSQProducerConfig{
             address: "127.0.0.1:4150".to_string(),

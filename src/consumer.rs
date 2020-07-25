@@ -1,6 +1,8 @@
 use super::*;
 use connection::*;
 
+use regex::Regex;
+
 #[derive(serde::Deserialize)]
 struct LookupResponseProducer {
     broadcast_address: String,
@@ -150,6 +152,66 @@ async fn rebalancer(
         rebalancer_step(max_in_flight, &clients_ref).await;
 
         tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
+    }
+}
+
+lazy_static! {
+    static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
+}
+
+fn is_valid_name(name: &String) -> bool {
+    if name.len() < 1 || name.len() > 64 {
+        return false;
+    }
+
+    return NAMEREGEX.is_match(name);
+}
+
+#[derive(Clone, Debug)]
+pub struct NSQTopic {
+    topic: String
+}
+
+impl NSQTopic {
+    pub fn new<S: Into<String>>(topic: S) -> Option<Self> {
+        let topic = topic.into();
+
+        if is_valid_name(&topic) {
+            Some(Self{
+                topic: topic
+            })
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NSQChannel {
+    channel: String
+}
+
+impl NSQChannel {
+    pub fn new<S: Into<String>>(channel: S) -> Option<Self> {
+        let channel = channel.into();
+
+        if is_valid_name(&channel) {
+            Some(Self{
+                channel: channel
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub struct NSQConsumerConfigBuilder {
+
+}
+
+impl NSQConsumerConfigBuilder {
+    pub fn new() -> Self {
+        return Self{};
     }
 }
 
