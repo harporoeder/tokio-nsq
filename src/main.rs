@@ -13,7 +13,7 @@ async fn main() {
 
     let _ = TermLogger::init(LevelFilter::Trace, logging_config, TerminalMode::Mixed);
 
-    let _topic   = NSQTopic::new("names").unwrap();
+    let topic    = NSQTopic::new("names").unwrap();
     let _channel = NSQChannel::new("first").unwrap();
 
     {
@@ -28,11 +28,11 @@ async fn main() {
 
         println!("status {:?}", status);
 
-        producer.publish("names".to_string(), "alice1".to_string().as_bytes().to_vec());
-        producer.publish("names".to_string(), "alice2".to_string().as_bytes().to_vec());
-        producer.publish("names".to_string(), "alice3".to_string().as_bytes().to_vec());
-        producer.publish("names".to_string(), "alice4".to_string().as_bytes().to_vec());
-        producer.publish("names".to_string(), "alice5".to_string().as_bytes().to_vec());
+        producer.publish(&topic, "alice1".to_string().as_bytes().to_vec());
+        producer.publish(&topic, "alice2".to_string().as_bytes().to_vec());
+        producer.publish(&topic, "alice3".to_string().as_bytes().to_vec());
+        producer.publish(&topic, "alice4".to_string().as_bytes().to_vec());
+        producer.publish(&topic, "alice5".to_string().as_bytes().to_vec());
     }
 
     let mut addresses = HashSet::new();

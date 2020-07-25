@@ -113,7 +113,7 @@ struct IdentifyResponse {
 #[derive(Debug)]
 pub enum MessageToNSQ {
     NOP,
-    PUB(String, Vec<u8>),
+    PUB(Arc<NSQTopic>, Vec<u8>),
     SUB(String, String),
     RDY(u16),
     FIN([u8; 16]),
@@ -379,11 +379,11 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
 
             stream.write_all(b"NOP\n").await?;
         },
-        MessageToNSQ::PUB(channel, body) => {
+        MessageToNSQ::PUB(topic, body) => {
             trace!("MessageToNSQ::PUB start");
 
             stream.write_all(b"PUB ").await?;
-            stream.write_all(channel.as_bytes()).await?;
+            stream.write_all(topic.topic.as_bytes()).await?;
             stream.write_all(b"\n").await?;
 
             let count = u32::try_from(body.len())?.to_be_bytes();
@@ -691,7 +691,7 @@ impl NSQDConnection {
         self.from_connection_rx.recv().await
     }
 
-    pub fn publish(&mut self, topic: String, value: Vec<u8>) {
+    pub fn publish(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>) {
         if self.shared.healthy.load(Ordering::SeqCst) {
             trace!("publish healthy");
 

@@ -28,7 +28,7 @@ impl NSQProducer {
         return self.connection.consume().await;
     }
 
-    pub fn publish(&mut self, topic: String, value: Vec<u8>) {
-        self.connection.publish(topic, value);
+    pub fn publish(&mut self, topic: &Arc<NSQTopic>, value: Vec<u8>) {
+        self.connection.publish(topic.clone(), value);
     }
 }
