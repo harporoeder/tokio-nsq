@@ -19,3 +19,4 @@ tokio-rustls      = "0.14"
 rustls            = { version = "0.18", features = ["dangerous_configuration"] }
 regex             = "1"
 lazy_static       = "1.4"
+backoff           = "0.2.1"

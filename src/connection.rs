@@ -7,6 +7,8 @@ use tokio_rustls::{ TlsConnector, rustls::ClientConfig };
 use failure::Fail;
 use std::fmt;
 use regex::Regex;
+use crate::backoff::backoff::Backoff;
+use std::time::{Instant};
 
 lazy_static! {
     static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
@@ -578,7 +580,12 @@ pub async fn with_stopper(
 }
 
 async fn run_connection_supervisor(mut state: NSQDConnectionState) {
+    let mut backoff = backoff::ExponentialBackoff::default();
+    backoff.max_interval = std::time::Duration::new(60, 0);
+
     loop {
+        let now = Instant::now();
+
         match run_connection(&mut state).await {
             Err(generic) => {
                 &state.shared.healthy.store(false, Ordering::SeqCst);
@@ -587,8 +594,6 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
 
                 if let Some(error) = generic.downcast_ref::<tokio::io::Error>() {
                     trace!("tokio io error: {}", error);
-
-                    tokio::time::delay_for(std::time::Duration::new(5, 0)).await;
                 } else if let Some(error) = generic.downcast_ref::<serde_json::Error>() {
                     trace!("serde json error: {}", error);
 
@@ -603,6 +608,16 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
                 return;
             }
         }
+
+        if now.elapsed().as_secs() >= 45 {
+            info!("run_connection_supervisor resetting backoff");
+
+            backoff.reset();
+        }
+
+        let sleep_for = backoff.next_backoff().unwrap();
+        error!("run_connection_supervisor sleeping for: {}", sleep_for.as_secs());
+        tokio::time::delay_for(sleep_for).await;
     }
 }
 

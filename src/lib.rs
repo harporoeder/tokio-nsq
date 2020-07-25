@@ -11,6 +11,7 @@ extern crate rustls;
 extern crate regex;
 #[macro_use]
 extern crate lazy_static;
+extern crate backoff;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
