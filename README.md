@@ -7,3 +7,16 @@ A rust NSQ client built on Tokio. Tokio NSQ aims to be a feature complete NSQ cl
 ## Versioning
 
 This project follows strict semantic versioning. While pre `1.0.0` breaking changes have only a minor version bump.
+
+## Features
+
+- [x] Subscriptions
+- [x] Publication
+- [x] NSQLookupd based discovery.
+- [ ] Message Backoff
+- [x] NSQD TLS negotiation
+- [ ] NSQD TLS client certificates
+- [x] Deflate NSQD compression
+- [ ] Snappy NSQD compression
+- [ ] Sampling
+- [ ] Auth
