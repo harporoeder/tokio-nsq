@@ -527,7 +527,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         user_agent:          "rustnsq/0.1.0".to_string(),
         feature_negotiation: true,
         tls_v1:              state.config.shared.tls.is_some(),
-        deflate:             true,
+        deflate:             state.config.shared.compression.is_some(),
     };
 
     let serialized = serde_json::to_string(&identify_body)?;
@@ -582,7 +582,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
     };
 
-    let (mut stream_rx, mut stream_tx) = if true {
+    let (mut stream_rx, mut stream_tx) = if state.config.shared.compression.is_some() {
         let mut stream_rx = NSQInflate::new(stream_rx);
         let mut stream_tx = NSQDeflate::new(stream_tx);
 
