@@ -40,7 +40,7 @@ message.finish();
 ```rust
 let topic = NSQTopic::new("names").unwrap();
 
-let mut producer = NSQProducerConfig::new("127.0.0.1:4150".to_string()).build();
+let mut producer = NSQProducerConfig::new("127.0.0.1:4150").build();
 
 println!("waiting on status");
 let status = producer.consume().await;
