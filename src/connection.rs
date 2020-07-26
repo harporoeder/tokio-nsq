@@ -102,7 +102,7 @@ impl ServerCertVerifier for Unverified {
 
 #[derive(serde::Serialize)]
 struct IdentifyBody {
-    client_id:           String,
+    client_id:           Option<String>,
     hostname:            String,
     user_agent:          String,
     feature_negotiation: bool,
@@ -521,7 +521,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     let mut stream = tokio::net::TcpStream::connect(state.config.address.clone()).await?;
 
     let identify_body = IdentifyBody {
-        client_id:           "my-client-id".to_string(),
+        client_id:           state.config.shared.client_id.clone(),
         hostname:            "my-hostname".to_string(),
         user_agent:          "rustnsq/0.1.0".to_string(),
         feature_negotiation: true,

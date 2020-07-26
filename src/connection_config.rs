@@ -32,6 +32,7 @@ pub struct NSQConfigShared {
     pub compression:           Option<NSQConfigSharedCompression>,
     pub tls:                   Option<NSQConfigSharedTLS>,
     pub credentials:           Option<Vec<u8>>,
+    pub client_id:             Option<String>,
 }
 
 impl NSQConfigShared {
@@ -42,6 +43,7 @@ impl NSQConfigShared {
             compression:           None,
             tls:                   None,
             credentials:           None,
+            client_id:             None,
         }
     }
 
@@ -71,6 +73,12 @@ impl NSQConfigShared {
 
     pub fn set_tls(mut self, tls: NSQConfigSharedTLS) -> Self {
         self.tls = Some(tls);
+
+        return self;
+    }
+
+    pub fn set_client_id<S: Into<String>>(mut self, client_id: S) -> Self {
+        self.client_id = Some(client_id.into());
 
         return self;
     }
