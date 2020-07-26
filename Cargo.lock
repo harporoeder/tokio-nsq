@@ -462,6 +462,7 @@ dependencies = [
  "hyper",
  "lazy_static",
  "log",
+ "miniz_oxide",
  "regex",
  "rustls",
  "serde",

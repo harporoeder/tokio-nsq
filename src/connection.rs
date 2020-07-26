@@ -10,6 +10,8 @@ use regex::Regex;
 use crate::backoff::backoff::Backoff;
 use std::time::{Instant};
 
+use compression::*;
+
 lazy_static! {
     static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
 }
@@ -74,10 +76,10 @@ struct Unverified {}
 impl ServerCertVerifier for Unverified {
     fn verify_server_cert(
         &self,
-        _roots: &RootCertStore,
+        _roots:           &RootCertStore,
         _presented_certs: &[Certificate],
-        _dns_name: DNSNameRef,
-        _ocsp_response: &[u8]
+        _dns_name:        DNSNameRef,
+        _ocsp_response:   &[u8]
     ) -> Result<ServerCertVerified, TLSError>
     {
         info!("called verifier");
@@ -93,6 +95,7 @@ struct IdentifyBody {
     user_agent:          String,
     feature_negotiation: bool,
     tls_v1:              bool,
+    deflate:             bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -511,7 +514,9 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         hostname:            "my-hostname".to_string(),
         user_agent:          "rustnsq/0.1.0".to_string(),
         feature_negotiation: true,
-        tls_v1:              state.config.tls.is_some(),
+        // tls_v1:              state.config.tls.is_some(),
+        tls_v1:              false,
+        deflate:             true,
     };
 
     let serialized = serde_json::to_string(&identify_body)?;
@@ -535,6 +540,20 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         }
     }
 
+    let mut stream_rx = NSQInflate::new(stream);
+
+    match read_frame_data(&mut stream_rx).await? {
+        Frame::Response(_body) => {
+            error!("got response 1");
+        }
+        _ => {
+            error!("expected response 2");
+
+            return Ok(());
+        }
+    }
+
+    /*
     if let Some(_) = &state.config.tls {
         let verifier = Arc::new(Unverified{});
 
@@ -561,6 +580,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     } else {
         run_generic(state, stream).await?;
     };
+    */
 
     return Ok(());
 }

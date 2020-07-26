@@ -12,6 +12,7 @@ extern crate regex;
 #[macro_use]
 extern crate lazy_static;
 extern crate backoff;
+extern crate miniz_oxide;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -29,6 +30,7 @@ use failure::{Error};
 mod connection;
 mod producer;
 mod consumer;
+mod compression;
 
 pub use connection::*;
 pub use producer::*;
