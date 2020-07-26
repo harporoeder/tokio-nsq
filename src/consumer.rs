@@ -1,5 +1,6 @@
 use super::*;
 use connection::*;
+use connection_config::*;
 
 #[derive(Clone)]
 pub struct NSQConsumerLookupConfig {
@@ -18,7 +19,7 @@ pub struct NSQConsumerConfig {
     topic:         Arc<NSQTopic>,
     channel:       Arc<NSQChannel>,
     sources:       NSQConsumerConfigSources,
-    tls:           Option<NSQDConfigTLS>,
+    shared:        NSQConfigShared,
     max_in_flight: u32,
 }
 
@@ -28,19 +29,13 @@ impl NSQConsumerConfig {
             topic:         topic,
             channel:       channel,
             sources:       NSQConsumerConfigSources::Daemons(Vec::new()),
-            tls:           None,
+            shared:        NSQConfigShared::new(),
             max_in_flight: 1,
         }
     }
 
     pub fn set_max_in_flight(mut self, max_in_flight: u32) -> Self {
         self.max_in_flight = max_in_flight;
-
-        return self;
-    }
-
-    pub fn set_tls(mut self, tls: NSQDConfigTLS) -> Self {
-        self.tls = Some(tls);
 
         return self;
     }
@@ -133,7 +128,7 @@ async fn lookup(
                     NSQDConfig {
                         address:   address.clone(),
                         subscribe: Some((config.topic.clone(), config.channel.clone())),
-                        tls:       config.tls.clone(),
+                        tls:       None,
                     },
                     from_connections_tx.clone()
                 );
@@ -220,7 +215,7 @@ async fn rebalancer(
 }
 
 impl NSQConsumer {
-    pub fn new(config: NSQConsumerConfig) -> NSQConsumer {
+    fn new(config: NSQConsumerConfig) -> NSQConsumer {
         info!("NSQConsumer::new()");
 
         let (from_connections_tx, from_connections_rx) = tokio::sync::mpsc::unbounded_channel();
