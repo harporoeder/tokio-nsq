@@ -215,7 +215,7 @@ async fn rebalancer(
 
         rebalancer_step(max_in_flight, &clients_ref).await;
 
-        tokio::time::delay_for(std::time::Duration::new(1, 0)).await;
+        tokio::time::delay_for(std::time::Duration::new(30, 0)).await;
     }
 }
 

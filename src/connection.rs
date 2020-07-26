@@ -454,13 +454,12 @@ async fn handle_stop(stop: &mut tokio::sync::oneshot::Receiver<()>) {
     let _ = stop.await;
 }
 
-async fn run_generic<S: AsyncWrite + AsyncRead + std::marker::Unpin>(
-    state:  &mut NSQDConnectionState,
-    stream: S,
+async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::marker::Unpin>(
+    state:     &mut NSQDConnectionState,
+    mut stream_rx: R,
+    mut stream_tx: W,
 ) -> Result<(), Error>
 {
-    let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
-
     match &state.config.subscribe {
         Some((channel, topic)) => {
             handle_single_command(&state.shared, MessageToNSQ::SUB(channel.clone(), topic.clone()),
@@ -540,7 +539,9 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         }
     }
 
-    let mut stream_rx = NSQInflate::new(stream);
+    let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
+
+    let mut stream_rx = NSQInflate::new(stream_rx);
 
     match read_frame_data(&mut stream_rx).await? {
         Frame::Response(_body) => {
@@ -552,6 +553,10 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
             return Ok(());
         }
     }
+
+    let mut stream_tx = NSQDeflate::new(stream_tx);
+
+    run_generic(state, stream_rx, stream_tx).await?;
 
     /*
     if let Some(_) = &state.config.tls {
