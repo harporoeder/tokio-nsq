@@ -26,9 +26,10 @@ impl NSQProducerConfig {
     pub fn build(self) -> NSQProducer {
         return NSQProducer {
             connection: NSQDConnection::new(NSQDConfig {
-                address:   self.address,
-                subscribe: None,
-                shared:    self.shared,
+                address:     self.address,
+                subscribe:   None,
+                shared:      self.shared,
+                sample_rate: None,
             })
         }
     }

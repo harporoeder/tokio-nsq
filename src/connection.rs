@@ -108,6 +108,7 @@ struct IdentifyBody {
     feature_negotiation: bool,
     tls_v1:              bool,
     deflate:             bool,
+    sample_rate:         Option<u8>,
 }
 
 #[derive(serde::Deserialize)]
@@ -514,6 +515,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         feature_negotiation: true,
         tls_v1:              state.config.shared.tls.is_some(),
         deflate:             state.config.shared.compression.is_some(),
+        sample_rate:         None,
     };
 
     let serialized = serde_json::to_string(&identify_body)?;
@@ -657,9 +659,10 @@ pub struct NSQDConfigTLS {
 
 #[derive(Debug, Clone)]
 pub struct NSQDConfig {
-    pub address:   String,
-    pub subscribe: Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
-    pub shared:    NSQConfigShared,
+    pub address:     String,
+    pub subscribe:   Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
+    pub shared:      NSQConfigShared,
+    pub sample_rate: Option<u8>,
 }
 
 pub struct NSQDConnection {

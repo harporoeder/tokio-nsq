@@ -59,5 +59,5 @@ producer.publish(&topic, "alice1".to_string().as_bytes().to_vec());
 - [ ] NSQD TLS client certificates
 - [x] Deflate NSQD compression
 - [ ] Snappy NSQD compression
-- [ ] Sampling
+- [X] Sampling
 - [ ] Auth

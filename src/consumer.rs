@@ -24,6 +24,7 @@ pub struct NSQConsumerConfig {
     sources:       NSQConsumerConfigSources,
     shared:        NSQConfigShared,
     max_in_flight: u32,
+    sample_rate:   Option<u8>,
 }
 
 impl NSQConsumerConfig {
@@ -34,6 +35,7 @@ impl NSQConsumerConfig {
             sources:       NSQConsumerConfigSources::Daemons(Vec::new()),
             shared:        NSQConfigShared::new(),
             max_in_flight: 1,
+            sample_rate:   None,
         }
     }
 
@@ -51,6 +53,12 @@ impl NSQConsumerConfig {
 
     pub fn set_shared(mut self, shared: NSQConfigShared) -> Self {
         self.shared = shared;
+
+        return self;
+    }
+
+    pub fn set_sample_rate(mut self, sample_rate: u8) -> Self {
+        self.sample_rate = Some(sample_rate);
 
         return self;
     }
@@ -132,9 +140,10 @@ async fn lookup(
 
                     let mut client = NSQDConnection::new_with_queue(
                         NSQDConfig {
-                            address:   address.clone(),
-                            subscribe: Some((config.topic.clone(), config.channel.clone())),
-                            shared:    config.shared.clone(),
+                            address:     address.clone(),
+                            subscribe:   Some((config.topic.clone(), config.channel.clone())),
+                            shared:      config.shared.clone(),
+                            sample_rate: config.sample_rate,
                         },
                         from_connections_tx.clone()
                     );
