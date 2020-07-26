@@ -74,6 +74,17 @@ impl fmt::Display for NoneError {
     }
 }
 
+#[derive(Debug, Fail)]
+struct ProtocolError {
+    message: String
+}
+
+impl fmt::Display for ProtocolError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 struct Unverified {}
 
 impl ServerCertVerifier for Unverified {
@@ -256,11 +267,17 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
         frame_body.resize(frame_size as usize, 0);
         stream.read_exact(&mut frame_body).await?;
 
-        let frame_body_str = std::str::from_utf8(&frame_body)?;
+        let s = std::str::from_utf8(&frame_body)?;
 
-        trace!("body = {}", frame_body_str);
+        if s == "E_FIN_FAILED" || s == "E_REQ_FAILED" || s == "E_TOUCH_FAILED" {
+            warn!("non fatal protocol error {}", s);
 
-        return Ok(Frame::Error(frame_body));
+            return Ok(Frame::Error(frame_body));
+        }  else {
+            error!("fatal protocol error = {}", s);
+
+            Err(ProtocolError{message: s.to_string()})?;
+        }
     } else if frame_type == 2 {
         trace!("frame_type FrameTypeMessage");
 
