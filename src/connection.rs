@@ -25,6 +25,7 @@ fn is_valid_name(name: &String) -> bool {
     return NAMEREGEX.is_match(name);
 }
 
+/// A smart constructor validating an NSQ topic name
 #[derive(Clone, Debug)]
 pub struct NSQTopic {
     pub topic: String
@@ -44,6 +45,7 @@ impl NSQTopic {
     }
 }
 
+/// A smart constructor validating an NSQ channel name
 #[derive(Clone, Debug)]
 pub struct NSQChannel {
     pub channel: String
