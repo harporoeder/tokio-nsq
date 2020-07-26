@@ -31,7 +31,9 @@ mod connection;
 mod producer;
 mod consumer;
 mod compression;
+mod connection_config;
 
 pub use connection::*;
 pub use producer::*;
 pub use consumer::*;
+pub use connection_config::*;
