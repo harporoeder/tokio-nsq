@@ -11,8 +11,6 @@ pub struct NSQProducerConfig {
 
 impl NSQProducerConfig {
     pub fn new(address: String) -> NSQProducerConfig {
-        info!("NSQProducerConfig::new()");
-
         return NSQProducerConfig {
             address: address,
             shared:  NSQConfigShared::new(),

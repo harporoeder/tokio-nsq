@@ -114,8 +114,6 @@ async fn lookup(
 
     let s = std::str::from_utf8(&buffer)?;
 
-    println!("got nodes: {}", s);
-
     let lookup_response: LookupResponse = serde_json::from_slice(&buffer)?;
 
     let mut guard = clients_ref.lock().unwrap();
@@ -125,14 +123,12 @@ async fn lookup(
 
         match guard.get_mut(&address) {
             Some(context) => {
-                println!("existing producer: {}", address);
-
                 context.found_by.insert(address.clone());
 
                 continue;
             },
             None    => {
-                println!("new producer: {}", address);
+                info!("new producer: {}", address);
 
                 let mut client = NSQDConnection::new_with_queue(
                     NSQDConfig {
@@ -171,7 +167,7 @@ async fn lookup_supervisor(
         let f = lookup(&address, &config, &clients_ref, &from_connections_tx);
 
         if let Err(generic) = f.await {
-            trace!("lookup_supervisor unknown error {}", generic);
+            error!("lookup_supervisor unknown error {}", generic);
         }
 
         tokio::time::delay_for(std::time::Duration::new(5, 0)).await;
@@ -204,8 +200,6 @@ async fn rebalancer_step(
         partial
     };
 
-    trace!("healthy count: {} {}", healthy.len(), partial);
-
     for node in healthy.iter_mut() {
         NSQDConnection::ready(*node, partial as u16).unwrap();
     }
@@ -216,8 +210,6 @@ async fn rebalancer(
     clients_ref:   std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
 ) {
     loop {
-        trace!("rebalancer iter");
-
         rebalancer_step(max_in_flight, &clients_ref).await;
 
         tokio::time::delay_for(std::time::Duration::new(30, 0)).await;
@@ -226,8 +218,6 @@ async fn rebalancer(
 
 impl NSQConsumer {
     fn new(config: NSQConsumerConfig) -> NSQConsumer {
-        info!("NSQConsumer::new()");
-
         let (from_connections_tx, from_connections_rx) = tokio::sync::mpsc::unbounded_channel();
 
         let mut pool = NSQConsumer {
@@ -286,7 +276,7 @@ impl NSQConsumer {
 
             match event {
                 None        => {
-                    println!("filtered {:?}", event);
+                    trace!("filtered {:?}", event);
 
                     return None;
                 },
@@ -301,7 +291,7 @@ impl NSQConsumer {
 
 impl Drop for NSQConsumer {
     fn drop(&mut self) {
-        info!("NSQConsumer::drop()");
+        trace!("NSQConsumer::drop()");
 
         while let Some(oneshot) = self.oneshots.pop() {
             oneshot.send(()).unwrap(); // other end should always exist

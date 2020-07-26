@@ -96,8 +96,6 @@ impl ServerCertVerifier for Unverified {
         _ocsp_response:   &[u8]
     ) -> Result<ServerCertVerified, TLSError>
     {
-        info!("called verifier");
-
         return Ok(ServerCertVerified::assertion());
     }
 }
@@ -162,27 +160,23 @@ pub enum NSQEvent {
 impl MessageFromNSQ {
     pub fn finish(mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
-            trace!("finish healthy");
-
             let message = MessageToNSQ::FIN(self.id);
 
             self.context.to_connection_tx_ref.send(message).unwrap();
 
             self.consumed = true;
         } else {
-            trace!("finish unhealthy");
+            warn!("finish unhealthy");
         }
     }
 
     pub fn touch(&mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
-            trace!("touch healthy");
-
             let message = MessageToNSQ::TOUCH(self.id);
 
             self.context.to_connection_tx_ref.send(message).unwrap();
         } else {
-            trace!("touch unhealthy");
+            warn!("touch unhealthy");
         }
     }
 }
@@ -191,8 +185,6 @@ impl Drop for MessageFromNSQ {
     fn drop(&mut self) {
         if !self.consumed {
             if self.context.healthy.load(Ordering::SeqCst) {
-                trace!("MessageFromNSQ::drop requeue success");
-
                 let message = MessageToNSQ::REQ(self.id);
 
                 self.context.to_connection_tx_ref.send(message).unwrap();
@@ -237,32 +229,23 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
     stream: &mut S
 ) -> Result<Frame, Error>
 {
-    trace!("read_frame()");
-
     let mut frame_size_buffer = [0; 4];
     stream.read_exact(&mut frame_size_buffer).await?;
     let frame_size = u32::from_be_bytes(frame_size_buffer) - 4;
-    trace!("frame_size = {}", frame_size);
 
     let mut frame_type_buffer = [0; 4];
     stream.read_exact(&mut frame_type_buffer).await?;
     let frame_type = u32::from_be_bytes(frame_type_buffer);
 
     if frame_type == 0 {
-        trace!("frame_type FrameTypeResponse");
-
         let mut frame_body = Vec::new();
         frame_body.resize(frame_size as usize, 0);
         stream.read_exact(&mut frame_body).await?;
 
         let frame_body_str = std::str::from_utf8(&frame_body)?;
 
-        trace!("body = {}", frame_body_str);
-
         return Ok(Frame::Response(frame_body));
     } else if frame_type == 1 {
-        trace!("frame_type FrameTypeError");
-
         let mut frame_body = Vec::new();
         frame_body.resize(frame_size as usize, 0);
         stream.read_exact(&mut frame_body).await?;
@@ -279,8 +262,6 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
             Err(ProtocolError{message: s.to_string()})?;
         }
     } else if frame_type == 2 {
-        trace!("frame_type FrameTypeMessage");
-
         let mut message_timestamp_buffer = [0; 8];
         stream.read_exact(&mut message_timestamp_buffer).await?;
         let message_timestamp = u64::from_be_bytes(message_timestamp_buffer);
@@ -304,7 +285,7 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
             body:      message_body,
         }));
     } else {
-        trace!("frame_type unknown = {}", frame_type);
+        error!("frame_type unknown = {}", frame_type);
     }
 
     return Ok(Frame::Unknown);
@@ -316,20 +297,14 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
     from_connection_tx:   &mut tokio::sync::mpsc::UnboundedSender<NSQEvent>
 ) -> Result<(), Error>
 {
-    error!("handle_reads_loop");
-
     loop {
         match read_frame_data(stream).await? {
             Frame::Response(body) => {
                 let frame_body_str = std::str::from_utf8(&body)?;
 
                 if frame_body_str == "_heartbeat_" {
-                    trace!("heartbeat");
-
                     shared.to_connection_tx_ref.send(MessageToNSQ::NOP)?;
                 } else if frame_body_str == "OK" {
-                    trace!("OK");
-
                     from_connection_tx.send(NSQEvent::Ok())?;
                 }
 
@@ -400,13 +375,9 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
 {
     match message {
         MessageToNSQ::NOP => {
-            trace!("MessageToNSQ::NOP");
-
             stream.write_all(b"NOP\n").await?;
         },
         MessageToNSQ::PUB(topic, body) => {
-            trace!("MessageToNSQ::PUB start");
-
             stream.write_all(b"PUB ").await?;
             stream.write_all(topic.topic.as_bytes()).await?;
             stream.write_all(b"\n").await?;
@@ -415,12 +386,8 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
 
             stream.write_all(&count).await?;
             stream.write_all(&body).await?;
-
-            trace!("MessageToNSQ::PUB finished");
         },
         MessageToNSQ::SUB(topic, channel) => {
-            trace!("MessageToNSQ::SUB");
-
             stream.write_all(b"SUB ").await?;
             stream.write_all(topic.topic.as_bytes()).await?;
             stream.write_all(b" ").await?;
@@ -428,26 +395,18 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
             stream.write_all(b"\n").await?;
         },
         MessageToNSQ::RDY(count) => {
-            trace!("MessageToNSQ::RDY");
-
             write_rdy(stream, count).await?;
         },
         MessageToNSQ::FIN(id) => {
-            trace!("MessageToNSQ::FIN");
-
             write_fin(stream, &id).await?;
 
             let inflight = shared.inflight.fetch_sub(1, Ordering::SeqCst);
-
-            trace!("MessageToNSQ::FIN had {} inflight", inflight);
         },
         MessageToNSQ::TOUCH(id) => {
-            trace!("MessageToNSQ::TOUCH");
-
             write_touch(stream, &id).await?;
         },
         MessageToNSQ::REQ(_id) => {
-            trace!("MessageToNSQ::REQ");
+            error!("MessageToNSQ::REQ");
         },
     }
 
@@ -460,11 +419,8 @@ async fn handle_command<S: AsyncWrite + std::marker::Unpin>(
     stream:           &mut S
 ) -> Result<(), Error>
 {
-    error!("handle_commands_loop");
-
     loop {
         let message = to_connection_rx.recv().await.ok_or(NoneError)?;
-        trace!("to_connection_rx got message");
 
         handle_single_command(shared, message, stream).await?;
     }
@@ -487,8 +443,7 @@ async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::mar
 
             match read_frame_data(&mut stream_rx).await? {
                 Frame::Response(_) => {
-                    // expected
-                    trace!("subscibe success");
+
                 },
                 _ => {
                     return Ok(());
@@ -502,25 +457,17 @@ async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::mar
 
     state.from_connection_tx.send(NSQEvent::Healthy())?;
 
-    trace!("starting main loop");
-
     let f1 = handle_command(&state.shared, &mut state.to_connection_rx, &mut stream_tx);
     let f2 = handle_reads(&mut stream_rx, &state.shared, &mut state.from_connection_tx);
 
     tokio::select! {
         status = f1 => {
-            trace!("select! finished handle command");
-
             status?;
         }
         status = f2 => {
-            trace!("select! finished handle frame");
-
             status?;
         }
     };
-
-    error!("unexpected end");
 
     return Ok(());
 }
@@ -550,7 +497,6 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     };
 
     let serialized = serde_json::to_string(&identify_body)?;
-    trace!("serialized = {}", serialized);
 
     let count = u32::try_from(serialized.len())?.to_be_bytes();
 
@@ -585,7 +531,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(_body) => {
-                error!("got response 1");
+
             }
             _ => {
                 error!("expected response 2");
@@ -607,7 +553,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(_body) => {
-                error!("got response 1");
+
             }
             _ => {
                 error!("expected response 2");
@@ -654,13 +600,13 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
                 let _ = state.from_connection_tx.send(NSQEvent::Unhealthy());
 
                 if let Some(error) = generic.downcast_ref::<tokio::io::Error>() {
-                    trace!("tokio io error: {}", error);
+                    error!("tokio io error: {}", error);
                 } else if let Some(error) = generic.downcast_ref::<serde_json::Error>() {
-                    trace!("serde json error: {}", error);
+                    error!("serde json error: {}", error);
 
                     return;
                 } else {
-                    trace!("unknown error {}", generic);
+                    error!("unknown error {}", generic);
 
                     return;
                 }
@@ -677,7 +623,7 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
         }
 
         let sleep_for = backoff.next_backoff().unwrap();
-        error!("run_connection_supervisor sleeping for: {}", sleep_for.as_secs());
+        info!("run_connection_supervisor sleeping for: {}", sleep_for.as_secs());
         tokio::time::delay_for(sleep_for).await;
     }
 }
@@ -767,19 +713,15 @@ impl NSQDConnection {
 
     pub fn publish(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>) {
         if self.shared.healthy.load(Ordering::SeqCst) {
-            trace!("publish healthy");
-
             let message = MessageToNSQ::PUB(topic, value);
 
             self.to_connection_tx_ref.send(message).unwrap();
         } else {
-            trace!("publish unhealthy");
+            warn!("publish unhealthy");
         }
     }
 
     pub fn ready(&mut self, count: u16) -> Result<(), Error> {
-        trace!("ready()");
-
         let message = MessageToNSQ::RDY(count);
 
         self.to_connection_tx_ref.send(message).unwrap();
@@ -790,7 +732,7 @@ impl NSQDConnection {
 
 impl Drop for NSQDConnection {
     fn drop(&mut self) {
-        info!("NSQDConnection::drop()");
+        trace!("NSQDConnection::drop()");
         self.shutdown_tx.take().unwrap().send(()).unwrap() // other end should always exist
     }
 }
