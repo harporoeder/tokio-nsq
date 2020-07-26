@@ -60,4 +60,4 @@ producer.publish(&topic, "alice1".to_string().as_bytes().to_vec());
 - [x] Deflate NSQD compression
 - [ ] Snappy NSQD compression
 - [X] Sampling
-- [ ] Auth
+- [X] Auth

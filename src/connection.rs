@@ -378,6 +378,18 @@ async fn write_requeue<S: AsyncWrite + std::marker::Unpin>(
     return Ok(());
 }
 
+async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
+    stream:      &mut S,
+    credentials: &[u8]
+) -> Result<(), Error>
+{
+    stream.write_all(b"AUTH\n").await?;
+    let count = u32::try_from(credentials.len())?.to_be_bytes();
+    stream.write_all(&count).await?;
+    stream.write_all(&credentials).await?;
+    return Ok(());
+}
+
 async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
     _shared:  &Arc<NSQDConnectionShared>,
     message:  MessageToNSQ,
@@ -556,7 +568,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
             }
             _ => {
-                error!("expected response 2");
+                error!("tls negotiation failed");
 
                 return Ok(());
             }
@@ -569,7 +581,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
     };
 
-    let (stream_rx, stream_tx) = if state.config.shared.compression.is_some() {
+    let (mut stream_rx, mut stream_tx) = if state.config.shared.compression.is_some() {
         let mut stream_rx = NSQInflate::new(stream_rx);
         let stream_tx     = NSQDeflate::new(stream_tx);
 
@@ -578,7 +590,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
             }
             _ => {
-                error!("expected response 2");
+                error!("compression negotiation failed");
 
                 return Ok(());
             }
@@ -588,6 +600,21 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     } else {
         (stream_rx, stream_tx)
     };
+
+    if let Some(credentials) = &state.config.shared.credentials {
+        write_auth(&mut stream_tx, credentials).await?;
+
+        match read_frame_data(&mut stream_rx).await? {
+            Frame::Response(_body) => {
+
+            }
+            _ => {
+                error!("auth negotiation failed");
+
+                return Ok(());
+            }
+        }
+    }
 
     info!("handshake completed");
 

@@ -31,6 +31,7 @@ pub struct NSQConfigShared {
     pub backoff_healthy_after: std::time::Duration,
     pub compression:           Option<NSQConfigSharedCompression>,
     pub tls:                   Option<NSQConfigSharedTLS>,
+    pub credentials:           Option<Vec<u8>>,
 }
 
 impl NSQConfigShared {
@@ -40,6 +41,7 @@ impl NSQConfigShared {
             backoff_healthy_after: std::time::Duration::new(45, 0),
             compression:           None,
             tls:                   None,
+            credentials:           None,
         }
     }
 
@@ -57,6 +59,12 @@ impl NSQConfigShared {
 
     pub fn set_compression(mut self, compression: NSQConfigSharedCompression) -> Self {
         self.compression = Some(compression);
+
+        return self;
+    }
+
+    pub fn set_credentials(mut self, credentials: Vec<u8>) -> Self {
+        self.credentials = Some(credentials);
 
         return self;
     }
