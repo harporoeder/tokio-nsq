@@ -3,6 +3,7 @@ use super::*;
 use connection::*;
 use connection_config::*;
 
+/// Configuration object for an NSQ consumer
 pub struct NSQProducerConfig {
     address: String,
     shared:  NSQConfigShared,
@@ -35,6 +36,7 @@ impl NSQProducerConfig {
     }
 }
 
+/// An NSQD producer corresponding to a single instance
 pub struct NSQProducer {
     connection: NSQDConnection,
 }

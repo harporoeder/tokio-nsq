@@ -1,3 +1,4 @@
+/// NSQD TLS encryption options
 #[derive(Debug, Clone)]
 pub struct NSQConfigSharedTLS {
     required: bool
@@ -17,11 +18,13 @@ impl NSQConfigSharedTLS {
     }
 }
 
+/// NSQD TCP compression options
 #[derive(Debug, Clone)]
 pub enum NSQConfigSharedCompression {
     Deflate(u8)
 }
 
+/// Configuration options shared by both produces and consumers
 #[derive(Debug, Clone)]
 pub struct NSQConfigShared {
     pub backoff_max_wait:      std::time::Duration,

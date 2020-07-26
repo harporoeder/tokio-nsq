@@ -2,18 +2,21 @@ use super::*;
 use connection::*;
 use connection_config::*;
 
+/// Configuration object for NSQLookup nodes
 #[derive(Clone)]
 pub struct NSQConsumerLookupConfig {
     pub poll_interval: std::time::Duration,
     pub addresses:     HashSet<String>
 }
 
+/// The strategy a consumer should use to connect to NSQD instances
 #[derive(Clone)]
 pub enum NSQConsumerConfigSources {
     Daemons(Vec<String>),
     Lookup(NSQConsumerLookupConfig)
 }
 
+/// Configuration object for an NSQD consumer
 #[derive(Clone)]
 pub struct NSQConsumerConfig {
     topic:         Arc<NSQTopic>,
@@ -62,6 +65,7 @@ struct NSQConnectionMeta {
     found_by:   HashSet<String>,
 }
 
+/// An NSQD consumer corresponding to multiple NSQD instances
 pub struct NSQConsumer {
     from_connections_rx: tokio::sync::mpsc::UnboundedReceiver<NSQEvent>,
     clients_ref:         std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
