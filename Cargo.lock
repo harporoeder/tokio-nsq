@@ -453,26 +453,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nsq"
-version = "0.1.0"
-dependencies = [
- "backoff",
- "byteorder",
- "failure",
- "hyper",
- "lazy_static",
- "log",
- "miniz_oxide",
- "regex",
- "rustls",
- "serde",
- "serde_json",
- "simplelog",
- "tokio",
- "tokio-rustls",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -844,6 +824,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tokio-nsq"
+version = "0.1.0"
+dependencies = [
+ "backoff",
+ "byteorder",
+ "failure",
+ "hyper",
+ "lazy_static",
+ "log",
+ "miniz_oxide",
+ "regex",
+ "rustls",
+ "serde",
+ "serde_json",
+ "simplelog",
+ "tokio",
+ "tokio-rustls",
 ]
 
 [[package]]

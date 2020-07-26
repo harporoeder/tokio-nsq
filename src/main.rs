@@ -3,7 +3,7 @@ extern crate simplelog;
 use simplelog::*;
 use std::collections::HashSet;
 
-use nsq::*;
+use tokio_nsq::*;
 
 #[tokio::main]
 async fn main() {

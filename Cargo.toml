@@ -1,5 +1,5 @@
 [package]
-name    = "nsq"
+name    = "tokio-nsq"
 version = "0.1.0"
 authors = ["Harpo Roeder <roedeharpo@protonmail.ch>"]
 edition = "2018"
