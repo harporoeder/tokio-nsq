@@ -10,9 +10,9 @@ pub struct NSQProducerConfig {
 }
 
 impl NSQProducerConfig {
-    pub fn new(address: String) -> NSQProducerConfig {
+    pub fn new<S: Into<String>>(address: S) -> NSQProducerConfig {
         return NSQProducerConfig {
-            address: address,
+            address: address.into(),
             shared:  NSQConfigShared::new(),
         }
     }
