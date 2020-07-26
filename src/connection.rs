@@ -749,7 +749,7 @@ impl NSQDConnection {
 
             self.to_connection_tx_ref.send(message).unwrap();
         } else {
-            warn!("publish unhealthy");
+            warn!("publish deferred unhealthy");
         }
     }
 
