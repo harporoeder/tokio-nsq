@@ -8,7 +8,7 @@ use tokio_nsq::*;
 #[tokio::main]
 async fn main() {
     let logging_config = ConfigBuilder::new()
-        .add_filter_allow("nsq".to_string())
+        .add_filter_allow("tokio_nsq".to_string())
         .build();
 
     let _ = TermLogger::init(LevelFilter::Trace, logging_config, TerminalMode::Mixed);

@@ -114,43 +114,48 @@ async fn lookup(
 
     let lookup_response: LookupResponse = serde_json::from_slice(&buffer)?;
 
-    let mut guard = clients_ref.lock().unwrap();
+    {
+        let mut guard = clients_ref.lock().unwrap();
 
-    for producer in lookup_response.producers.iter() {
-        let address = producer.broadcast_address.clone() + ":" + &producer.tcp_port.to_string();
+        for producer in lookup_response.producers.iter() {
+            let address =
+                producer.broadcast_address.clone() + ":" + &producer.tcp_port.to_string();
 
-        match guard.get_mut(&address) {
-            Some(context) => {
-                context.found_by.insert(address.clone());
+            match guard.get_mut(&address) {
+                Some(context) => {
+                    context.found_by.insert(address.clone());
 
-                continue;
-            },
-            None    => {
-                info!("new producer: {}", address);
+                    continue;
+                },
+                None    => {
+                    info!("new producer: {}", address);
 
-                let mut client = NSQDConnection::new_with_queue(
-                    NSQDConfig {
-                        address:   address.clone(),
-                        subscribe: Some((config.topic.clone(), config.channel.clone())),
-                        shared:    config.shared.clone(),
-                    },
-                    from_connections_tx.clone()
-                );
+                    let mut client = NSQDConnection::new_with_queue(
+                        NSQDConfig {
+                            address:   address.clone(),
+                            subscribe: Some((config.topic.clone(), config.channel.clone())),
+                            shared:    config.shared.clone(),
+                        },
+                        from_connections_tx.clone()
+                    );
 
-                client.ready(1)?;
+                    client.ready(1)?;
 
-                let mut found_by = HashSet::new();
-                found_by.insert(address.clone());
+                    let mut found_by = HashSet::new();
+                    found_by.insert(address.clone());
 
-                guard.insert(address, NSQConnectionMeta{
-                    connection: client,
-                    found_by:   found_by,
-                });
+                    guard.insert(address, NSQConnectionMeta{
+                        connection: client,
+                        found_by:   found_by,
+                    });
+                }
             }
         }
+
+        remove_old_connections(&mut guard);
     }
 
-    remove_old_connections(&mut guard);
+    rebalancer_step(config.max_in_flight, &clients_ref).await;
 
     return Ok(());
 }

@@ -563,6 +563,8 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         (stream_rx, stream_tx)
     };
 
+    info!("handshake completed");
+
     run_generic(state, stream_rx, stream_tx).await?;
 
     return Ok(());
