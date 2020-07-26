@@ -551,7 +551,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         }
     }
 
-    let (mut stream_rx, mut stream_tx) = if let Some(_) = &state.config.shared.tls {
+    let (stream_rx, stream_tx) = if let Some(_) = &state.config.shared.tls {
         let verifier = Arc::new(Unverified{});
 
         let mut config = ClientConfig::new();
@@ -560,9 +560,9 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         let config = TlsConnector::from(Arc::new(config));
         let dnsname = DNSNameRef::try_from_ascii_str("abctest.com")?;
 
-        let mut stream = config.connect(dnsname, stream).await?;
+        let stream = config.connect(dnsname, stream).await?;
 
-        let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
+        let (mut stream_rx, stream_tx) = tokio::io::split(stream);
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(_body) => {
@@ -577,14 +577,14 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
         (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
     } else {
-        let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
+        let (stream_rx, stream_tx) = tokio::io::split(stream);
 
         (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
     };
 
-    let (mut stream_rx, mut stream_tx) = if state.config.shared.compression.is_some() {
+    let (stream_rx, stream_tx) = if state.config.shared.compression.is_some() {
         let mut stream_rx = NSQInflate::new(stream_rx);
-        let mut stream_tx = NSQDeflate::new(stream_tx);
+        let stream_tx     = NSQDeflate::new(stream_tx);
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(_body) => {

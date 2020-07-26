@@ -6,8 +6,6 @@ use core::task::Context;
 use core::task::Poll;
 use tokio::io::Result;
 use std::pin::Pin;
-use failure::Fail;
-use std::fmt;
 use std::io::{Error, ErrorKind};
 
 pub struct NSQInflate<S> {
@@ -166,7 +164,7 @@ impl<S> AsyncWrite for NSQDeflate<S>
 
                         this.output_start = this.output_start + n;
 
-                        if (this.output_start != this.output_end) {
+                        if this.output_start != this.output_end {
                             info!("write ready pending");
 
                             return Poll::Pending;
@@ -215,8 +213,8 @@ impl<S> AsyncWrite for NSQDeflate<S>
     }
 
     fn poll_flush(
-        mut self: Pin<&mut Self>,
-        cx:       &mut Context,
+        self: Pin<&mut Self>,
+        _cx:  &mut Context,
     ) -> Poll<Result<()>>
     {
         info!("poll_flush");
@@ -225,8 +223,8 @@ impl<S> AsyncWrite for NSQDeflate<S>
     }
 
     fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx:       &mut Context,
+        self: Pin<&mut Self>,
+        _cx:  &mut Context,
     ) -> Poll<Result<()>>
     {
         info!("poll_shutdown");

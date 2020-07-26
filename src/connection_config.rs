@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Debug, Clone)]
 pub struct NSQConfigSharedTLS {
     required: bool
