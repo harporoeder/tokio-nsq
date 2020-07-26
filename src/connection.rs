@@ -242,8 +242,6 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
         frame_body.resize(frame_size as usize, 0);
         stream.read_exact(&mut frame_body).await?;
 
-        let frame_body_str = std::str::from_utf8(&frame_body)?;
-
         return Ok(Frame::Response(frame_body));
     } else if frame_type == 1 {
         let mut frame_body = Vec::new();
@@ -368,9 +366,9 @@ async fn write_touch<S: AsyncWrite + std::marker::Unpin>(
 }
 
 async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
-    shared:  &Arc<NSQDConnectionShared>,
-    message: MessageToNSQ,
-    stream:  &mut S
+    _shared:  &Arc<NSQDConnectionShared>,
+    message:  MessageToNSQ,
+    stream:   &mut S
 ) -> Result<(), Error>
 {
     match message {
@@ -399,8 +397,6 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
         },
         MessageToNSQ::FIN(id) => {
             write_fin(stream, &id).await?;
-
-            let inflight = shared.inflight.fetch_sub(1, Ordering::SeqCst);
         },
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;

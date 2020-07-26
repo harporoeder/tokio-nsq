@@ -112,8 +112,6 @@ async fn lookup(
 
     let buffer = hyper::body::to_bytes(response).await?;
 
-    let s = std::str::from_utf8(&buffer)?;
-
     let lookup_response: LookupResponse = serde_json::from_slice(&buffer)?;
 
     let mut guard = clients_ref.lock().unwrap();
