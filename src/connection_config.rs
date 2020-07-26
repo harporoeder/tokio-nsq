@@ -26,10 +26,10 @@ pub enum NSQConfigSharedCompression {
 
 #[derive(Debug, Clone)]
 pub struct NSQConfigShared {
-    backoff_max_wait:      std::time::Duration,
-    backoff_healthy_after: std::time::Duration,
-    compression:           Option<NSQConfigSharedCompression>,
-    tls:                   Option<NSQConfigSharedTLS>,
+    pub backoff_max_wait:      std::time::Duration,
+    pub backoff_healthy_after: std::time::Duration,
+    pub compression:           Option<NSQConfigSharedCompression>,
+    pub tls:                   Option<NSQConfigSharedTLS>,
 }
 
 impl NSQConfigShared {

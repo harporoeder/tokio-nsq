@@ -128,7 +128,7 @@ async fn lookup(
                     NSQDConfig {
                         address:   address.clone(),
                         subscribe: Some((config.topic.clone(), config.channel.clone())),
-                        tls:       None,
+                        shared:    config.shared.clone(),
                     },
                     from_connections_tx.clone()
                 );

@@ -1,4 +1,5 @@
 use super::*;
+use connection_config::*;
 
 use std::sync::atomic::{AtomicU64};
 use tokio_rustls::webpki::DNSNameRef;
@@ -525,7 +526,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         hostname:            "my-hostname".to_string(),
         user_agent:          "rustnsq/0.1.0".to_string(),
         feature_negotiation: true,
-        tls_v1:              state.config.tls.is_some(),
+        tls_v1:              state.config.shared.tls.is_some(),
         deflate:             true,
     };
 
@@ -550,7 +551,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         }
     }
 
-    let (mut stream_rx, mut stream_tx) = if let Some(_) = &state.config.tls {
+    let (mut stream_rx, mut stream_tx) = if let Some(_) = &state.config.shared.tls {
         let verifier = Arc::new(Unverified{});
 
         let mut config = ClientConfig::new();
@@ -671,7 +672,7 @@ pub struct NSQDConfigTLS {
 pub struct NSQDConfig {
     pub address:   String,
     pub subscribe: Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
-    pub tls:       Option<NSQDConfigTLS>,
+    pub shared:    NSQConfigShared,
 }
 
 pub struct NSQDConnection {
