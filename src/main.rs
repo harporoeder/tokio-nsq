@@ -17,7 +17,12 @@ async fn main() {
     let channel = NSQChannel::new("first").unwrap();
 
     {
-        let mut producer = NSQProducerConfig::new("127.0.0.1:4150".to_string()).build();
+        let mut producer = NSQProducerConfig::new("127.0.0.1:4150".to_string())
+            .set_shared(
+                NSQConfigShared::new()
+                    .set_tls(NSQConfigSharedTLS::new())
+            )
+            .build();
 
         println!("waiting on status");
 
@@ -43,6 +48,10 @@ async fn main() {
                 addresses:     addresses,
             }
         ))
+        .set_shared(
+            NSQConfigShared::new()
+                .set_tls(NSQConfigSharedTLS::new())
+        )
         .build();
 
     loop {

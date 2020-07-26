@@ -46,6 +46,12 @@ impl NSQConsumerConfig {
         return self;
     }
 
+    pub fn set_shared(mut self, shared: NSQConfigShared) -> Self {
+        self.shared = shared;
+
+        return self;
+    }
+
     pub fn build(self) -> NSQConsumer {
         return NSQConsumer::new(self);
     }

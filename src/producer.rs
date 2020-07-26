@@ -18,6 +18,12 @@ impl NSQProducerConfig {
         }
     }
 
+    pub fn set_shared(mut self, shared: NSQConfigShared) -> Self {
+        self.shared = shared;
+
+        return self;
+    }
+
     pub fn build(self) -> NSQProducer {
         return NSQProducer {
             connection: NSQDConnection::new(NSQDConfig {
