@@ -365,6 +365,17 @@ async fn write_touch<S: AsyncWrite + std::marker::Unpin>(
     return Ok(());
 }
 
+async fn write_requeue<S: AsyncWrite + std::marker::Unpin>(
+    stream: &mut S,
+    id:     &[u8]
+) -> Result<(), Error>
+{
+    stream.write_all(b"REQ ").await?;
+    stream.write_all(&id).await?;
+    stream.write_all(b" 0\n").await?;
+    return Ok(());
+}
+
 async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
     _shared:  &Arc<NSQDConnectionShared>,
     message:  MessageToNSQ,
@@ -401,8 +412,8 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;
         },
-        MessageToNSQ::REQ(_id) => {
-            error!("MessageToNSQ::REQ");
+        MessageToNSQ::REQ(id) => {
+            write_requeue(stream, &id).await?;
         },
     }
 
