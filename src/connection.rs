@@ -505,6 +505,18 @@ async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::mar
     return Ok(());
 }
 
+fn write_to_dyn<S: Send + AsyncWrite + std::marker::Unpin + 'static>(stream_tx: S)
+    -> Box<dyn Send + AsyncWrite + std::marker::Unpin>
+{
+    Box::new(stream_tx)
+}
+
+fn read_to_dyn<S: Send + AsyncRead + std::marker::Unpin + 'static>(stream_rx: S)
+    -> Box<dyn Send + AsyncRead + std::marker::Unpin>
+{
+    Box::new(stream_rx)
+}
+
 async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     let mut stream = tokio::net::TcpStream::connect(state.config.address.clone()).await?;
 
@@ -513,8 +525,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         hostname:            "my-hostname".to_string(),
         user_agent:          "rustnsq/0.1.0".to_string(),
         feature_negotiation: true,
-        // tls_v1:              state.config.tls.is_some(),
-        tls_v1:              false,
+        tls_v1:              state.config.tls.is_some(),
         deflate:             true,
     };
 
@@ -539,27 +550,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         }
     }
 
-    let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
-
-    let mut stream_rx = NSQInflate::new(stream_rx);
-
-    match read_frame_data(&mut stream_rx).await? {
-        Frame::Response(_body) => {
-            error!("got response 1");
-        }
-        _ => {
-            error!("expected response 2");
-
-            return Ok(());
-        }
-    }
-
-    let mut stream_tx = NSQDeflate::new(stream_tx);
-
-    run_generic(state, stream_rx, stream_tx).await?;
-
-    /*
-    if let Some(_) = &state.config.tls {
+    let (mut stream_rx, mut stream_tx) = if let Some(_) = &state.config.tls {
         let verifier = Arc::new(Unverified{});
 
         let mut config = ClientConfig::new();
@@ -570,7 +561,9 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
         let mut stream = config.connect(dnsname, stream).await?;
 
-        match read_frame_data(&mut stream).await? {
+        let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
+
+        match read_frame_data(&mut stream_rx).await? {
             Frame::Response(_body) => {
                 error!("got response 1");
             }
@@ -581,11 +574,34 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
             }
         }
 
-        run_generic(state, stream).await?;
+        (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
     } else {
-        run_generic(state, stream).await?;
+        let (mut stream_rx, mut stream_tx) = tokio::io::split(stream);
+
+        (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
     };
-    */
+
+    let (mut stream_rx, mut stream_tx) = if true {
+        let mut stream_rx = NSQInflate::new(stream_rx);
+        let mut stream_tx = NSQDeflate::new(stream_tx);
+
+        match read_frame_data(&mut stream_rx).await? {
+            Frame::Response(_body) => {
+                error!("got response 1");
+            }
+            _ => {
+                error!("expected response 2");
+
+                return Ok(());
+            }
+        }
+
+        (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
+    } else {
+        (stream_rx, stream_tx)
+    };
+
+    run_generic(state, stream_rx, stream_tx).await?;
 
     return Ok(());
 }
