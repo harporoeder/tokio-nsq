@@ -33,7 +33,25 @@ mod consumer;
 mod compression;
 mod connection_config;
 
-pub use connection::*;
-pub use producer::*;
-pub use consumer::*;
-pub use connection_config::*;
+pub use connection::
+    { NSQTopic
+    , NSQChannel
+    };
+
+pub use producer::
+    { NSQProducerConfig
+    , NSQProducer
+    };
+
+pub use consumer::
+    { NSQConsumerConfig
+    , NSQConsumerConfigSources
+    , NSQConsumerLookupConfig
+    , NSQConsumer
+    };
+
+pub use connection_config::
+    { NSQConfigSharedTLS
+    , NSQConfigSharedCompression
+    , NSQConfigShared
+    };
