@@ -1,10 +1,32 @@
 use super::*;
 
 use connection::*;
+use connection_config::*;
 
 pub struct NSQProducerConfig {
-    pub address: String,
-    pub tls:     Option<NSQDConfigTLS>,
+    address: String,
+    shared:  NSQConfigShared,
+}
+
+impl NSQProducerConfig {
+    pub fn new(address: String) -> NSQProducerConfig {
+        info!("NSQProducerConfig::new()");
+
+        return NSQProducerConfig {
+            address: address,
+            shared:  NSQConfigShared::new(),
+        }
+    }
+
+    pub fn build(self) -> NSQProducer {
+        return NSQProducer {
+            connection: NSQDConnection::new(NSQDConfig {
+                address:   self.address,
+                subscribe: None,
+                tls:       None,
+            })
+        }
+    }
 }
 
 pub struct NSQProducer {
@@ -12,18 +34,6 @@ pub struct NSQProducer {
 }
 
 impl NSQProducer {
-    pub fn new(config: NSQProducerConfig) -> NSQProducer {
-        info!("NSQProducer::new()");
-
-        return NSQProducer {
-            connection: NSQDConnection::new(NSQDConfig {
-                address:   config.address,
-                subscribe: None,
-                tls:       config.tls,
-            })
-        }
-    }
-
     pub async fn consume(&mut self) -> Option<NSQEvent> {
         return self.connection.consume().await;
     }

@@ -17,10 +17,7 @@ async fn main() {
     let channel = NSQChannel::new("first").unwrap();
 
     {
-        let mut producer = NSQProducer::new(NSQProducerConfig{
-            address: "127.0.0.1:4150".to_string(),
-            tls:     Some(NSQDConfigTLS{}),
-        });
+        let mut producer = NSQProducerConfig::new("127.0.0.1:4150".to_string()).build();
 
         println!("waiting on status");
 
@@ -42,7 +39,7 @@ async fn main() {
         .set_max_in_flight(15)
         .set_tls(
             NSQDConfigTLS{
-                
+
             }
         )
         .set_sources(
