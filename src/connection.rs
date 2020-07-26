@@ -131,6 +131,7 @@ struct IdentifyResponse {
 pub enum MessageToNSQ {
     NOP,
     PUB(Arc<NSQTopic>, Vec<u8>),
+    DPUB(Arc<NSQTopic>, Vec<u8>, u32),
     SUB(Arc<NSQTopic>, Arc<NSQChannel>),
     RDY(u16),
     FIN([u8; 16]),
@@ -389,6 +390,18 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
         MessageToNSQ::PUB(topic, body) => {
             stream.write_all(b"PUB ").await?;
             stream.write_all(topic.topic.as_bytes()).await?;
+            stream.write_all(b"\n").await?;
+
+            let count = u32::try_from(body.len())?.to_be_bytes();
+
+            stream.write_all(&count).await?;
+            stream.write_all(&body).await?;
+        },
+        MessageToNSQ::DPUB(topic, body, delay) => {
+            stream.write_all(b"DPUB ").await?;
+            stream.write_all(topic.topic.as_bytes()).await?;
+            stream.write_all(b" ").await?;
+            stream.write_all(delay.to_string().as_bytes()).await?;
             stream.write_all(b"\n").await?;
 
             let count = u32::try_from(body.len())?.to_be_bytes();
@@ -723,6 +736,16 @@ impl NSQDConnection {
     pub fn publish(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>) {
         if self.shared.healthy.load(Ordering::SeqCst) {
             let message = MessageToNSQ::PUB(topic, value);
+
+            self.to_connection_tx_ref.send(message).unwrap();
+        } else {
+            warn!("publish unhealthy");
+        }
+    }
+
+    pub fn publish_deferred(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>, delay_seconds: u32) {
+        if self.shared.healthy.load(Ordering::SeqCst) {
+            let message = MessageToNSQ::DPUB(topic, value, delay_seconds);
 
             self.to_connection_tx_ref.send(message).unwrap();
         } else {

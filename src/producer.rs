@@ -47,4 +47,8 @@ impl NSQProducer {
     pub fn publish(&mut self, topic: &Arc<NSQTopic>, value: Vec<u8>) {
         self.connection.publish(topic.clone(), value);
     }
+
+    pub fn publish_deferred(&mut self, topic: &Arc<NSQTopic>, value: Vec<u8>, delay_seconds: u32) {
+        self.connection.publish_deferred(topic.clone(), value, delay_seconds);
+    }
 }
