@@ -260,8 +260,27 @@ impl NSQConsumer {
         };
 
         match &config.sources {
-            NSQConsumerConfigSources::Daemons(_) => {
+            NSQConsumerConfigSources::Daemons(daemons) => {
+                let mut guard = pool.clients_ref.lock().unwrap();
 
+                for address in daemons.iter() {
+                    info!("new producer: {}", address);
+
+                    let client = NSQDConnection::new_with_queue(
+                        NSQDConfig {
+                            address:     address.clone(),
+                            subscribe:   Some((config.topic.clone(), config.channel.clone())),
+                            shared:      config.shared.clone(),
+                            sample_rate: config.sample_rate,
+                        },
+                        from_connections_tx.clone()
+                    );
+
+                    guard.insert(address.clone(), NSQConnectionMeta{
+                        connection: client,
+                        found_by:   HashSet::new(),
+                    });
+                }
             },
             NSQConsumerConfigSources::Lookup(nodes) => {
                 for node in nodes.addresses.iter() {
