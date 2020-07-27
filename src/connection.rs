@@ -133,6 +133,7 @@ pub enum MessageToNSQ {
     NOP,
     PUB(Arc<NSQTopic>, Vec<u8>),
     DPUB(Arc<NSQTopic>, Vec<u8>, u32),
+    MPUB(Arc<NSQTopic>, Vec<Vec<u8>>),
     SUB(Arc<NSQTopic>, Arc<NSQChannel>),
     RDY(u16),
     FIN([u8; 16]),
@@ -421,6 +422,27 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
 
             stream.write_all(&count).await?;
             stream.write_all(&body).await?;
+        },
+        MessageToNSQ::MPUB(topic, messages) => {
+            let body_bytes = messages.iter().fold(0, |sum, x|
+                4 + sum + x.len()
+            ) + 4;
+
+            stream.write_all(b"MPUB ").await?;
+            stream.write_all(topic.topic.as_bytes()).await?;
+            stream.write_all(b"\n").await?;
+
+            let body_bytes = u32::try_from(body_bytes)?.to_be_bytes();
+            stream.write_all(&body_bytes).await?;
+
+            let count = u32::try_from(messages.len())?.to_be_bytes();
+            stream.write_all(&count).await?;
+
+            for message in messages.iter() {
+                let message_size = u32::try_from(message.len())?.to_be_bytes();
+                stream.write_all(&message_size).await?;
+                stream.write_all(&message).await?;
+            }
         },
         MessageToNSQ::SUB(topic, channel) => {
             stream.write_all(b"SUB ").await?;
@@ -800,6 +822,16 @@ impl NSQDConnection {
             self.to_connection_tx_ref.send(message).unwrap();
         } else {
             warn!("publish deferred unhealthy");
+        }
+    }
+
+    pub fn publish_multiple(&mut self, topic: Arc<NSQTopic>, value: Vec<Vec<u8>>) {
+        if self.shared.healthy.load(Ordering::SeqCst) {
+            let message = MessageToNSQ::MPUB(topic, value);
+
+            self.to_connection_tx_ref.send(message).unwrap();
+        } else {
+            warn!("publish unhealthy");
         }
     }
 
