@@ -16,13 +16,13 @@ impl NSQConsumerLookupConfig {
             addresses:     HashSet::new(),
         }
     }
-
+    /// How often an NSQD Lookup Daemon instance should be queried. Defaults to every 60 seconds.
     pub fn set_poll_interval(mut self, poll_interval: std::time::Duration) -> Self {
         self.poll_interval = poll_interval;
 
         return self;
     }
-
+    /// The set of HTTP addresses for NSQ Lookup Daemon connections. Defaults to no connections.
     pub fn set_addresses(mut self, addresses: HashSet<String>) -> Self {
         self.addresses = addresses;
 
@@ -50,6 +50,7 @@ pub struct NSQConsumerConfig {
 }
 
 impl NSQConsumerConfig {
+    /// A default configuration. You will likely need to configure other options.
     pub fn new(topic: Arc<NSQTopic>, channel: Arc<NSQChannel>) -> Self {
         return NSQConsumerConfig {
             topic:              topic,
@@ -61,37 +62,41 @@ impl NSQConsumerConfig {
             rebalance_interval: std::time::Duration::new(5, 0),
         }
     }
-
+    /// The maximum number of messages to process at once shared across all connections.
+    /// Defaults to a single message.
     pub fn set_max_in_flight(mut self, max_in_flight: u32) -> Self {
         self.max_in_flight = max_in_flight;
 
         return self;
     }
-
+    /// Where an NSQ consumer should find connections. Either an explicit list of NSQ Daemons,
+    /// or a list of NSQ Lookup Daemons to find NSQ instances. Defaults to no connections.
     pub fn set_sources(mut self, sources: NSQConsumerConfigSources) -> Self {
         self.sources = sources;
 
         return self;
     }
-
+    /// NSQ Daemon connection options, such as compression and TLS.
     pub fn set_shared(mut self, shared: NSQConfigShared) -> Self {
         self.shared = shared;
 
         return self;
     }
-
+    /// What percentage of messages to sample from the stream. N must be > 0 && < 100. Defaults to
+    /// consuming all messages.
     pub fn set_sample_rate(mut self, sample_rate: u8) -> Self {
         self.sample_rate = Some(sample_rate);
 
         return self;
     }
-
+    /// To maintain max in flight NSQ Daemons need to periodically have the ready count
+    /// rebalanced. For example as nodes fail. Defaults to every 5 seconds.
     pub fn set_rebalance_interval(mut self, rebalance_interval: std::time::Duration) -> Self {
         self.rebalance_interval = rebalance_interval;
 
         return self;
     }
-
+    /// Producer an NSQ consumer with this configuration.
     pub fn build(self) -> NSQConsumer {
         return NSQConsumer::new(self);
     }
