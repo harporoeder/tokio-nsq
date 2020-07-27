@@ -5,6 +5,7 @@ authors      = ["Harpo Roeder <roedeharpo@protonmail.ch>"]
 edition      = "2018"
 license-file = "LICENSE"
 repository   = "https://github.com/harporoeder/tokio-nsq"
+description  = "A rust NSQ client built on Tokio. Tokio NSQ aims to be a feature complete NSQ client implementation."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
