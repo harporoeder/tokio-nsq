@@ -20,11 +20,10 @@ addresses.insert("http://127.0.0.1:4161".to_string());
 let mut consumer = NSQConsumerConfig::new(topic, channel)
     .set_max_in_flight(15)
     .set_sources(
-        NSQConsumerConfigSources::Lookup(NSQConsumerLookupConfig {
-            poll_interval: std::time::Duration::new(5, 0),
-            addresses:     addresses,
-        }
-    ))
+        NSQConsumerConfigSources::Lookup(
+            NSQConsumerLookupConfig::new().set_addresses(addresses)
+        )
+    )
     .build();
 
 let mut message = consumer.consume_filtered().await.unwrap();

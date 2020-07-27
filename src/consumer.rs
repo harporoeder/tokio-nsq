@@ -5,8 +5,29 @@ use connection_config::*;
 /// Configuration object for NSQLookup nodes
 #[derive(Clone)]
 pub struct NSQConsumerLookupConfig {
-    pub poll_interval: std::time::Duration,
-    pub addresses:     HashSet<String>
+    poll_interval: std::time::Duration,
+    addresses:     HashSet<String>
+}
+
+impl NSQConsumerLookupConfig {
+    pub fn new() -> Self {
+        NSQConsumerLookupConfig {
+            poll_interval: std::time::Duration::new(60, 0),
+            addresses:     HashSet::new(),
+        }
+    }
+
+    pub fn set_poll_interval(mut self, poll_interval: std::time::Duration) -> Self {
+        self.poll_interval = poll_interval;
+
+        return self;
+    }
+
+    pub fn set_addresses(mut self, addresses: HashSet<String>) -> Self {
+        self.addresses = addresses;
+
+        return self;
+    }
 }
 
 /// The strategy a consumer should use to connect to NSQD instances

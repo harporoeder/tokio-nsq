@@ -43,11 +43,10 @@ async fn main() {
     let mut consumer = NSQConsumerConfig::new(topic, channel)
         .set_max_in_flight(15)
         .set_sources(
-            NSQConsumerConfigSources::Lookup(NSQConsumerLookupConfig {
-                poll_interval: std::time::Duration::new(5, 0),
-                addresses:     addresses,
-            }
-        ))
+            NSQConsumerConfigSources::Lookup(
+                NSQConsumerLookupConfig::new().set_addresses(addresses)
+            )
+        )
         .set_shared(
             NSQConfigShared::new()
                 .set_tls(NSQConfigSharedTLS::new())
