@@ -667,6 +667,26 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
             }
         }
 
+        let mut drained: u64 = 0;
+
+        loop {
+            match state.to_connection_rx.try_recv() {
+                Ok(_) => {
+                    drained = drained + 1;
+                },
+                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+                    break;
+                },
+                Err(tokio::sync::mpsc::error::TryRecvError::Closed) => {
+                    return;
+                }
+            }
+        }
+
+        if drained != 0 {
+            warn!("drained {} messages", drained);
+        }
+
         if now.elapsed().as_secs() >= 45 {
             info!("run_connection_supervisor resetting backoff");
 
