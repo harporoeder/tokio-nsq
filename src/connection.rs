@@ -32,6 +32,7 @@ pub struct NSQTopic {
 }
 
 impl NSQTopic {
+    /// Must match the regex `^[\.a-zA-Z0-9_-]+(#ephemeral)?$` and have length > 0 && < 65.
     pub fn new<S: Into<String>>(topic: S) -> Option<Arc<Self>> {
         let topic = topic.into();
 
@@ -52,6 +53,7 @@ pub struct NSQChannel {
 }
 
 impl NSQChannel {
+    /// Must match the regex `^[\.a-zA-Z0-9_-]+(#ephemeral)?$` and have length > 0 && < 65.
     pub fn new<S: Into<String>>(channel: S) -> Option<Arc<Self>> {
         let channel = channel.into();
 
