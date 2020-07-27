@@ -10,7 +10,7 @@ impl NSQConfigSharedTLS {
             required: true,
         }
     }
-
+    /// If the connection should fail if TLS is not supported. Defaults to true.
     pub fn set_required(mut self, required: bool) -> Self {
         self.required = required;
 
