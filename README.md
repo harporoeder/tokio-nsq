@@ -3,7 +3,7 @@
 ![GitHub Actions](https://github.com/harporoeder/tokio-nsq/workflows/Rust/badge.svg)
 ![crates.io](https://img.shields.io/crates/v/tokio-nsq.svg)
 
-A rust NSQ client built on Tokio. Tokio NSQ aims to be a feature complete NSQ client implementation.
+A Rust [NSQ](https://nsq.io/) client built on [Tokio](https://github.com/tokio-rs/tokio). Tokio NSQ aims to be a feature complete NSQ client implementation.
 
 ## Versioning
 
