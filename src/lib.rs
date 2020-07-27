@@ -2,13 +2,15 @@
 //! Tokio NSQ aims to be a feature complete NSQ client implementation.
 //!
 //! ## A basic producer example:
-//!```rust
+//!```no_run
 //!use tokio_nsq::*;
+//! # #[tokio::main]
+//! # async fn main() {
 //!
 //!let topic   = NSQTopic::new("names").unwrap();
 //!let channel = NSQChannel::new("first").unwrap();
 //!
-//!let mut addresses = HashSet::new();
+//!let mut addresses = std::collections::HashSet::new();
 //!addresses.insert("http://127.0.0.1:4161".to_string());
 //!
 //!let mut consumer = NSQConsumerConfig::new(topic, channel)
@@ -26,6 +28,7 @@
 //!println!("message body = {}", message_body_str);
 //!
 //!message.finish();
+//! # }
 //!```
 
 #![allow(dead_code)]
