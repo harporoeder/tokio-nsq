@@ -1,3 +1,33 @@
+//! A Rust [NSQ](https://nsq.io/) client built on [Tokio](https://github.com/tokio-rs/tokio).
+//! Tokio NSQ aims to be a feature complete NSQ client implementation.
+//!
+//! ## A basic producer example:
+//!```rust
+//!use tokio_nsq::*;
+//!
+//!let topic   = NSQTopic::new("names").unwrap();
+//!let channel = NSQChannel::new("first").unwrap();
+//!
+//!let mut addresses = HashSet::new();
+//!addresses.insert("http://127.0.0.1:4161".to_string());
+//!
+//!let mut consumer = NSQConsumerConfig::new(topic, channel)
+//!    .set_max_in_flight(15)
+//!    .set_sources(
+//!        NSQConsumerConfigSources::Lookup(
+//!            NSQConsumerLookupConfig::new().set_addresses(addresses)
+//!        )
+//!    )
+//!    .build();
+//!
+//!let mut message = consumer.consume_filtered().await.unwrap();
+//!
+//!let message_body_str = std::str::from_utf8(&message.body).unwrap();
+//!println!("message body = {}", message_body_str);
+//!
+//!message.finish();
+//!```
+
 #![allow(dead_code)]
 
 extern crate hyper;
