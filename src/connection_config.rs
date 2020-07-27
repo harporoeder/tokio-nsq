@@ -5,6 +5,7 @@ pub struct NSQConfigSharedTLS {
 }
 
 impl NSQConfigSharedTLS {
+    /// Construct a TLS configuration object. Defaults are insecure.
     pub fn new() -> Self {
         return NSQConfigSharedTLS {
             required: true,
