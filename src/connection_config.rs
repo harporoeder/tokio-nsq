@@ -27,12 +27,12 @@ pub enum NSQConfigSharedCompression {
 /// Configuration options shared by both produces and consumers
 #[derive(Debug, Clone)]
 pub struct NSQConfigShared {
-    pub backoff_max_wait:      std::time::Duration,
-    pub backoff_healthy_after: std::time::Duration,
-    pub compression:           Option<NSQConfigSharedCompression>,
-    pub tls:                   Option<NSQConfigSharedTLS>,
-    pub credentials:           Option<Vec<u8>>,
-    pub client_id:             Option<String>,
+    pub(crate) backoff_max_wait:      std::time::Duration,
+    pub(crate) backoff_healthy_after: std::time::Duration,
+    pub(crate) compression:           Option<NSQConfigSharedCompression>,
+    pub(crate) tls:                   Option<NSQConfigSharedTLS>,
+    pub(crate) credentials:           Option<Vec<u8>>,
+    pub(crate) client_id:             Option<String>,
 }
 
 impl NSQConfigShared {
