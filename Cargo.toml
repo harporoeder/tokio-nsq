@@ -4,6 +4,7 @@ version      = "0.1.0"
 authors      = ["Harpo Roeder <roedeharpo@protonmail.ch>"]
 edition      = "2018"
 license-file = "LICENSE"
+repository   = "https://github.com/harporoeder/tokio-nsq"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
