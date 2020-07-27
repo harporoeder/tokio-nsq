@@ -10,6 +10,7 @@ pub struct NSQProducerConfig {
 }
 
 impl NSQProducerConfig {
+    /// Construct a consumer with sane defaults.
     pub fn new<S: Into<String>>(address: S) -> NSQProducerConfig {
         return NSQProducerConfig {
             address: address.into(),
@@ -17,12 +18,14 @@ impl NSQProducerConfig {
         }
     }
 
+    /// NSQ Daemon connection options, such as compression and TLS.
     pub fn set_shared(mut self, shared: NSQConfigShared) -> Self {
         self.shared = shared;
 
         return self;
     }
 
+    /// Construct an NSQ producer with this configuration.
     pub fn build(self) -> NSQProducer {
         return NSQProducer {
             connection: NSQDConnection::new(NSQDConfig {

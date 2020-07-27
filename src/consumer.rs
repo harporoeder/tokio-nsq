@@ -96,7 +96,7 @@ impl NSQConsumerConfig {
 
         return self;
     }
-    /// Producer an NSQ consumer with this configuration.
+    /// Construct an NSQ consumer with this configuration.
     pub fn build(self) -> NSQConsumer {
         return NSQConsumer::new(self);
     }
