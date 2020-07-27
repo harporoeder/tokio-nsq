@@ -40,23 +40,25 @@ pub enum NSQConsumerConfigSources {
 /// Configuration object for an NSQD consumer
 #[derive(Clone)]
 pub struct NSQConsumerConfig {
-    topic:         Arc<NSQTopic>,
-    channel:       Arc<NSQChannel>,
-    sources:       NSQConsumerConfigSources,
-    shared:        NSQConfigShared,
-    max_in_flight: u32,
-    sample_rate:   Option<u8>,
+    topic:              Arc<NSQTopic>,
+    channel:            Arc<NSQChannel>,
+    sources:            NSQConsumerConfigSources,
+    shared:             NSQConfigShared,
+    max_in_flight:      u32,
+    sample_rate:        Option<u8>,
+    rebalance_interval: std::time::Duration,
 }
 
 impl NSQConsumerConfig {
     pub fn new(topic: Arc<NSQTopic>, channel: Arc<NSQChannel>) -> Self {
         return NSQConsumerConfig {
-            topic:         topic,
-            channel:       channel,
-            sources:       NSQConsumerConfigSources::Daemons(Vec::new()),
-            shared:        NSQConfigShared::new(),
-            max_in_flight: 1,
-            sample_rate:   None,
+            topic:              topic,
+            channel:            channel,
+            sources:            NSQConsumerConfigSources::Daemons(Vec::new()),
+            shared:             NSQConfigShared::new(),
+            max_in_flight:      1,
+            sample_rate:        None,
+            rebalance_interval: std::time::Duration::new(5, 0),
         }
     }
 
@@ -80,6 +82,12 @@ impl NSQConsumerConfig {
 
     pub fn set_sample_rate(mut self, sample_rate: u8) -> Self {
         self.sample_rate = Some(sample_rate);
+
+        return self;
+    }
+
+    pub fn set_rebalance_interval(mut self, rebalance_interval: std::time::Duration) -> Self {
+        self.rebalance_interval = rebalance_interval;
 
         return self;
     }
@@ -239,13 +247,14 @@ async fn rebalancer_step(
 }
 
 async fn rebalancer(
-    max_in_flight: u32,
-    clients_ref:   std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
+    rebalance_interval: std::time::Duration,
+    max_in_flight:      u32,
+    clients_ref:        std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
 ) {
     loop {
         rebalancer_step(max_in_flight, &clients_ref).await;
 
-        tokio::time::delay_for(std::time::Duration::new(30, 0)).await;
+        tokio::time::delay_for(rebalance_interval).await;
     }
 }
 
@@ -310,7 +319,9 @@ impl NSQConsumer {
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
 
         tokio::spawn(async move {
-            with_stopper(shutdown_rx, rebalancer(config.max_in_flight, clients_ref_dupe)).await;
+            with_stopper(shutdown_rx,
+                rebalancer(config.rebalance_interval, config.max_in_flight, clients_ref_dupe)
+            ).await;
         });
 
         pool.oneshots.push(shutdown_tx);
