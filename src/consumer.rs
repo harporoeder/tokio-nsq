@@ -10,6 +10,7 @@ pub struct NSQConsumerLookupConfig {
 }
 
 impl NSQConsumerLookupConfig {
+    /// Construct a Lookup Daemon configuration. Defaults to no connections.
     pub fn new() -> Self {
         NSQConsumerLookupConfig {
             poll_interval: std::time::Duration::new(60, 0),
