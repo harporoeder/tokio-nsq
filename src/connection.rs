@@ -583,13 +583,21 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         }
     }
 
-    let (stream_rx, stream_tx) = if let Some(_) = &state.config.shared.tls {
+    let (stream_rx, stream_tx) = if let Some(config_tls) = &state.config.shared.tls {
         let verifier = Arc::new(Unverified{});
 
-        let mut config = ClientConfig::new();
-        config.dangerous().set_certificate_verifier(verifier);
+        let config = match &config_tls.client_config {
+            Some(client_config) => {
+                client_config.clone()
+            },
+            None => {
+                let mut config = ClientConfig::new();
+                config.dangerous().set_certificate_verifier(verifier);
+                Arc::new(config)
+            }
+        };
 
-        let config = TlsConnector::from(Arc::new(config));
+        let config = TlsConnector::from(config);
         let dnsname = DNSNameRef::try_from_ascii_str("abctest.com")?;
 
         let stream = config.connect(dnsname, stream).await?;

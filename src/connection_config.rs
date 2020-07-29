@@ -3,8 +3,8 @@ use std::sync::Arc;
 /// NSQD TLS encryption options
 #[derive(Clone)]
 pub struct NSQConfigSharedTLS {
-    required:      bool,
-    client_config: Option<Arc<rustls::ClientConfig>>,
+    pub(crate) required:      bool,
+    pub(crate) client_config: Option<Arc<rustls::ClientConfig>>,
 }
 
 impl NSQConfigSharedTLS {
