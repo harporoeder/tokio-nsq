@@ -170,7 +170,7 @@ async fn lookup(
 
                     continue;
                 },
-                None    => {
+                None => {
                     info!("new producer: {}", address);
 
                     let mut client = NSQDConnection::new_with_queue(
@@ -183,7 +183,7 @@ async fn lookup(
                         from_connections_tx.clone()
                     );
 
-                    client.ready(1)?;
+                    let _ = client.ready(1);
 
                     let mut found_by = HashSet::new();
                     found_by.insert(address.clone());
@@ -249,7 +249,7 @@ async fn rebalancer_step(
     };
 
     for node in healthy.iter_mut() {
-        NSQDConnection::ready(*node, partial as u16).unwrap();
+        let _ = NSQDConnection::ready(*node, partial as u16);
     }
 }
 
