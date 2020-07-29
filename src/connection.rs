@@ -577,9 +577,8 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
             serde_json::from_slice(&body)?
         }
         _ => {
-            error!("expected response 1");
-
-            return Ok(());
+            return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                 "feature negotiation failed")));
         }
     };
 
@@ -605,13 +604,15 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         let (mut stream_rx, stream_tx) = tokio::io::split(stream);
 
         match read_frame_data(&mut stream_rx).await? {
-            Frame::Response(_body) => {
-
+            Frame::Response(body) => {
+                if body != "OK".as_bytes() {
+                    return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                        "tls negotiation expected OK")));
+                }
             }
             _ => {
-                error!("tls negotiation failed");
-
-                return Ok(());
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                     "tls negotiation failed")));
             }
         }
 
@@ -627,13 +628,15 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         let stream_tx     = NSQDeflate::new(stream_tx);
 
         match read_frame_data(&mut stream_rx).await? {
-            Frame::Response(_body) => {
-
+            Frame::Response(body) => {
+                if body != "OK".as_bytes() {
+                    return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                        "compression negotiation expected OK")));
+                }
             }
             _ => {
-                error!("compression negotiation failed");
-
-                return Ok(());
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                     "compression negotiation failed")));
             }
         }
 
@@ -650,9 +653,8 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
             }
             _ => {
-                error!("auth negotiation failed");
-
-                return Ok(());
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                     "authentication failed")));
             }
         }
     }
