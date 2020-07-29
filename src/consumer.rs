@@ -206,6 +206,7 @@ async fn lookup(
 
 async fn lookup_supervisor(
     address:             String,
+    poll_interval:       std::time::Duration,
     config:              NSQConsumerConfig,
     clients_ref:         std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
     from_connections_tx: tokio::sync::mpsc::UnboundedSender<NSQEvent>
@@ -217,7 +218,7 @@ async fn lookup_supervisor(
             error!("lookup_supervisor unknown error {}", generic);
         }
 
-        tokio::time::delay_for(std::time::Duration::new(5, 0)).await;
+        tokio::time::delay_for(poll_interval).await;
     }
 }
 
@@ -297,13 +298,14 @@ impl NSQConsumer {
                     });
                 }
             },
-            NSQConsumerConfigSources::Lookup(nodes) => {
-                for node in nodes.addresses.iter() {
+            NSQConsumerConfigSources::Lookup(lookup_config) => {
+                for node in lookup_config.addresses.iter() {
                     let clients_ref_dupe           = pool.clients_ref.clone();
                     let from_connections_tx_dupe   = from_connections_tx.clone();
                     let config_dupe                = config.clone();
                     let address_dupe               = node.clone();
                     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+                    let poll_interval_dupe         = lookup_config.poll_interval.clone();
 
                     pool.oneshots.push(shutdown_tx);
 
@@ -311,6 +313,7 @@ impl NSQConsumer {
                         with_stopper(shutdown_rx,
                             lookup_supervisor(
                                 address_dupe,
+                                poll_interval_dupe,
                                 config_dupe,
                                 clients_ref_dupe,
                                 from_connections_tx_dupe
