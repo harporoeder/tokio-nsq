@@ -1,19 +1,29 @@
+use std::sync::Arc;
+
 /// NSQD TLS encryption options
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NSQConfigSharedTLS {
-    required: bool
+    required:      bool,
+    client_config: Option<Arc<rustls::ClientConfig>>,
 }
 
 impl NSQConfigSharedTLS {
     /// Construct a TLS configuration object. Defaults are insecure.
     pub fn new() -> Self {
         return NSQConfigSharedTLS {
-            required: true,
+            required:      true,
+            client_config: None,
         }
     }
     /// If the connection should fail if TLS is not supported. Defaults to true.
     pub fn set_required(mut self, required: bool) -> Self {
         self.required = required;
+
+        return self;
+    }
+    /// Set TLS configuration object from `rustls` crate.
+    pub fn set_client_config(mut self, client_config: Arc<rustls::ClientConfig>) -> Self {
+        self.client_config = Some(client_config);
 
         return self;
     }
@@ -26,7 +36,7 @@ pub enum NSQConfigSharedCompression {
 }
 
 /// Configuration options shared by both produces and consumers
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NSQConfigShared {
     pub(crate) backoff_max_wait:      std::time::Duration,
     pub(crate) backoff_healthy_after: std::time::Duration,

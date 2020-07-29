@@ -732,12 +732,7 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct NSQDConfigTLS {
-
-}
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NSQDConfig {
     pub address:     String,
     pub subscribe:   Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
