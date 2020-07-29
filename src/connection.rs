@@ -572,7 +572,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     stream.write_all(&count).await?;
     stream.write_all(serialized.as_bytes()).await?;
 
-    let _settings: IdentifyResponse = match read_frame_data(&mut stream).await? {
+    let settings: IdentifyResponse = match read_frame_data(&mut stream).await? {
         Frame::Response(body) => {
             serde_json::from_slice(&body)?
         }
@@ -582,7 +582,23 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         }
     };
 
-    let (stream_rx, stream_tx) = if let Some(config_tls) = &state.config.shared.tls {
+    let config_tls =
+        if let Some(config_tls) = &state.config.shared.tls {
+            if config_tls.required && !settings.tls_v1 {
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                     "tls required but not supported by nsqd")));
+            }
+
+            if !settings.tls_v1 {
+                None
+            } else {
+                Some(config_tls)
+            }
+        } else {
+            None
+        };
+
+    let (stream_rx, stream_tx) = if let Some(config_tls) = config_tls {
         let verifier = Arc::new(Unverified{});
 
         let config = match &config_tls.client_config {
