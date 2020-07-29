@@ -572,16 +572,16 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     stream.write_all(&count).await?;
     stream.write_all(serialized.as_bytes()).await?;
 
-    match read_frame_data(&mut stream).await? {
+    let _settings: IdentifyResponse = match read_frame_data(&mut stream).await? {
         Frame::Response(body) => {
-            let _settings: IdentifyResponse = serde_json::from_slice(&body)?;
+            serde_json::from_slice(&body)?
         }
         _ => {
             error!("expected response 1");
 
             return Ok(());
         }
-    }
+    };
 
     let (stream_rx, stream_tx) = if let Some(config_tls) = &state.config.shared.tls {
         let verifier = Arc::new(Unverified{});

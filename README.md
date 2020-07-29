@@ -55,10 +55,10 @@ producer.publish(&topic, "alice1".to_string().as_bytes().to_vec());
 - [x] Publication
 - [x] NSQLookupd based discovery.
 - [ ] Message Backoff
-- [ ] NSQD TLS negotiation
+- [X] NSQD TLS negotiation
     - [x] Unverified server certificates
-    - [ ] Custom certificate authority
-    - [ ] Client certificates
+    - [X] Custom certificate authority
+    - [X] Client certificates
 - [x] Deflate NSQD compression
 - [ ] Snappy NSQD compression
 - [X] Sampling
