@@ -143,6 +143,8 @@ pub enum MessageToNSQ {
     TOUCH([u8; 16]),
 }
 
+/// An NSQ message. If this message is dropped with being finished and the respective NSQ
+/// daemon connection still exists the message will automatically by requeued.
 #[derive(Debug)]
 pub struct MessageFromNSQ {
         context:   Arc<NSQDConnectionShared>,
@@ -152,17 +154,24 @@ pub struct MessageFromNSQ {
     pub id:        [u8; 16],
     pub timestamp: u64,
 }
-
+/// An event from an NSQ connection. Includes connection status updates, errors, and actually
+/// NSQ messages.
 #[derive(Debug)]
 pub enum NSQEvent {
+    /// An NSQ consumer message
     Message(MessageFromNSQ),
+    /// Generated when a connection completes a handshake
     Healthy(),
+    /// Generated when a connection fails and will be restarted.
     Unhealthy(),
+    /// An acknowledgement for a producer that a message was delivered.
     Ok(),
+    /// A producer failed to queue a message
     SendFailed(),
 }
 
 impl MessageFromNSQ {
+    /// Sends a message acknowledgement to NSQ.
     pub fn finish(mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
             let message = MessageToNSQ::FIN(self.id);
@@ -174,7 +183,7 @@ impl MessageFromNSQ {
             warn!("finish unhealthy");
         }
     }
-
+    /// Tells NSQ daemon to reset the timeout for this message.
     pub fn touch(&mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
             let message = MessageToNSQ::TOUCH(self.id);

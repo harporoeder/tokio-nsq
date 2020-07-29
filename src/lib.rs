@@ -69,6 +69,8 @@ mod connection_config;
 pub use connection::
     { NSQTopic
     , NSQChannel
+    , NSQEvent
+    , MessageFromNSQ
     };
 
 pub use producer::
