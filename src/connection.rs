@@ -17,8 +17,8 @@ lazy_static! {
     static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
 }
 
-fn is_valid_name(name: &String) -> bool {
-    if name.len() < 1 || name.len() > 64 {
+fn is_valid_name(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
         return false;
     }
 
@@ -270,7 +270,7 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
         }  else {
             error!("fatal protocol error = {}", s);
 
-            Err(ProtocolError{message: s.to_string()})?;
+            return Err(Error::from(ProtocolError{message: s.to_string()}));
         }
     } else if frame_type == 2 {
         let mut message_timestamp_buffer = [0; 8];
@@ -521,7 +521,7 @@ async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::mar
         None => {}
     }
 
-    &state.shared.healthy.store(true, Ordering::SeqCst);
+    state.shared.healthy.store(true, Ordering::SeqCst);
 
     state.from_connection_tx.send(NSQEvent::Healthy())?;
 
@@ -647,7 +647,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(body) => {
-                if body != "OK".as_bytes() {
+                if body != b"OK" {
                     return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
                         "compression negotiation expected OK")));
                 }
@@ -707,8 +707,8 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
 
         match run_connection(&mut state).await {
             Err(generic) => {
-                &state.shared.healthy.store(false, Ordering::SeqCst);
-                &state.shared.current_ready.store(0, Ordering::SeqCst);
+                state.shared.healthy.store(false, Ordering::SeqCst);
+                state.shared.current_ready.store(0, Ordering::SeqCst);
 
                 let _ = state.from_connection_tx.send(NSQEvent::Unhealthy());
 
@@ -734,7 +734,7 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
         loop {
             match state.to_connection_rx.try_recv() {
                 Ok(_) => {
-                    drained = drained + 1;
+                    drained += 1;
                 },
                 Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
                     break;

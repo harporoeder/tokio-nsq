@@ -259,7 +259,7 @@ async fn rebalancer_step(
         }
     }
 
-    if healthy.len() == 0 {
+    if healthy.is_empty() {
         return;
     }
 
@@ -328,7 +328,7 @@ impl NSQConsumer {
                     let config_dupe                = config.clone();
                     let address_dupe               = node.clone();
                     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
-                    let poll_interval_dupe         = lookup_config.poll_interval.clone();
+                    let poll_interval_dupe         = lookup_config.poll_interval;
 
                     pool.oneshots.push(shutdown_tx);
 
