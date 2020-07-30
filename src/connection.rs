@@ -700,7 +700,7 @@ pub async fn with_stopper(
 
 async fn run_connection_supervisor(mut state: NSQDConnectionState) {
     let mut backoff = backoff::ExponentialBackoff::default();
-    backoff.max_interval = std::time::Duration::new(60, 0);
+    backoff.max_interval = state.config.shared.backoff_max_wait;
 
     loop {
         let now = Instant::now();
@@ -749,7 +749,7 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
             warn!("drained {} messages", drained);
         }
 
-        if now.elapsed().as_secs() >= 45 {
+        if now.elapsed() >= state.config.shared.backoff_healthy_after {
             info!("run_connection_supervisor resetting backoff");
 
             backoff.reset();
