@@ -837,30 +837,40 @@ impl NSQDConnection {
         self.from_connection_rx.recv().await
     }
 
-    fn queue_message(&mut self, message: MessageToNSQ) {
+    fn queue_message(&mut self, message: MessageToNSQ) -> Result<(), Error> {
         if self.shared.healthy.load(Ordering::SeqCst) {
-            self.to_connection_tx_ref.send(message).unwrap();
+            if let Err(_) = self.to_connection_tx_ref.send(message) {
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                     "queue message lock failed")));
+            }
+
+            return Ok(());
         } else {
             warn!("queue message unhealthy");
+
+            return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                 "connection is disconnected")));
         }
     }
 
-    pub fn publish(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>) {
+    pub fn publish(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>) -> Result<(), Error> {
         self.queue_message(MessageToNSQ::PUB(topic, value))
     }
 
-    pub fn publish_deferred(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>, delay_seconds: u32) {
+    pub fn publish_deferred(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>, delay_seconds: u32)
+        -> Result<(), Error>
+    {
         self.queue_message(MessageToNSQ::DPUB(topic, value, delay_seconds))
     }
 
-    pub fn publish_multiple(&mut self, topic: Arc<NSQTopic>, value: Vec<Vec<u8>>) {
+    pub fn publish_multiple(&mut self, topic: Arc<NSQTopic>, value: Vec<Vec<u8>>)
+        -> Result<(), Error>
+    {
         self.queue_message(MessageToNSQ::MPUB(topic, value))
     }
 
     pub fn ready(&mut self, count: u16) -> Result<(), Error> {
-        self.queue_message(MessageToNSQ::RDY(count));
-
-        return Ok(());
+        self.queue_message(MessageToNSQ::RDY(count))
     }
 }
 

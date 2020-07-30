@@ -30,11 +30,11 @@ async fn main() {
 
         println!("status {:?}", status);
 
-        producer.publish(&topic, "alice1".to_string().as_bytes().to_vec());
-        producer.publish(&topic, "alice2".to_string().as_bytes().to_vec());
-        producer.publish(&topic, "alice3".to_string().as_bytes().to_vec());
-        producer.publish(&topic, "alice4".to_string().as_bytes().to_vec());
-        producer.publish(&topic, "alice5".to_string().as_bytes().to_vec());
+        producer.publish(&topic, "alice1".to_string().as_bytes().to_vec()).unwrap();
+        producer.publish(&topic, "alice2".to_string().as_bytes().to_vec()).unwrap();
+        producer.publish(&topic, "alice3".to_string().as_bytes().to_vec()).unwrap();
+        producer.publish(&topic, "alice4".to_string().as_bytes().to_vec()).unwrap();
+        producer.publish(&topic, "alice5".to_string().as_bytes().to_vec()).unwrap();
     }
 
     let mut addresses = HashSet::new();
