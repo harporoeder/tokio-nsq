@@ -12,7 +12,7 @@ pub struct NSQProducerConfig {
 impl NSQProducerConfig {
     /// Construct a consumer with sane defaults.
     pub fn new<S: Into<String>>(address: S) -> NSQProducerConfig {
-        return NSQProducerConfig {
+        NSQProducerConfig {
             address: address.into(),
             shared:  NSQConfigShared::new(),
         }
@@ -22,12 +22,12 @@ impl NSQProducerConfig {
     pub fn set_shared(mut self, shared: NSQConfigShared) -> Self {
         self.shared = shared;
 
-        return self;
+        self
     }
 
     /// Construct an NSQ producer with this configuration.
     pub fn build(self) -> NSQProducer {
-        return NSQProducer {
+        NSQProducer {
             connection: NSQDConnection::new(NSQDConfig {
                 address:     self.address,
                 subscribe:   None,
@@ -45,7 +45,7 @@ pub struct NSQProducer {
 
 impl NSQProducer {
     pub async fn consume(&mut self) -> Option<NSQEvent> {
-        return self.connection.consume().await;
+        self.connection.consume().await
     }
 
     pub fn publish(&mut self, topic: &Arc<NSQTopic>, value: Vec<u8>) -> Result<(), Error> {
