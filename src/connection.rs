@@ -1,7 +1,7 @@
 use super::*;
 use connection_config::*;
 
-use std::sync::atomic::{AtomicU64};
+use std::sync::atomic::{AtomicU64, AtomicU16};
 use tokio_rustls::webpki::DNSNameRef;
 use rustls::*;
 use tokio_rustls::{ TlsConnector, rustls::ClientConfig };
@@ -221,6 +221,7 @@ struct NSQDConnectionShared {
     healthy:              AtomicBool,
     to_connection_tx_ref: std::sync::Arc<tokio::sync::mpsc::UnboundedSender<MessageToNSQ>>,
     inflight:             AtomicU64,
+    current_ready:        AtomicU16,
 }
 
 struct FrameMessage {
@@ -401,9 +402,9 @@ async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
 }
 
 async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
-    _shared:  &Arc<NSQDConnectionShared>,
-    message:  MessageToNSQ,
-    stream:   &mut S
+    shared:  &Arc<NSQDConnectionShared>,
+    message: MessageToNSQ,
+    stream:  &mut S
 ) -> Result<(), Error>
 {
     match message {
@@ -461,7 +462,10 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
             stream.write_all(b"\n").await?;
         },
         MessageToNSQ::RDY(count) => {
-            write_rdy(stream, count).await?;
+            if count != shared.current_ready.load(Ordering::SeqCst) {
+                write_rdy(stream, count).await?;
+                shared.current_ready.store(count, Ordering::SeqCst);
+            }
         },
         MessageToNSQ::FIN(id) => {
             write_fin(stream, &id).await?;
@@ -704,6 +708,7 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
         match run_connection(&mut state).await {
             Err(generic) => {
                 &state.shared.healthy.store(false, Ordering::SeqCst);
+                &state.shared.current_ready.store(0, Ordering::SeqCst);
 
                 let _ = state.from_connection_tx.send(NSQEvent::Unhealthy());
 
@@ -803,6 +808,7 @@ impl NSQDConnection {
             healthy:              AtomicBool::new(false),
             to_connection_tx_ref: to_connection_tx_ref_1.clone(),
             inflight:             AtomicU64::new(0),
+            current_ready:        AtomicU16::new(0),
         });
 
         let shared_state_clone = shared_state.clone();
