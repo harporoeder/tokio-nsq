@@ -623,7 +623,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(body) => {
-                if body != "OK".as_bytes() {
+                if body != b"OK" {
                     return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
                         "tls negotiation expected OK")));
                 }

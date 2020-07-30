@@ -21,13 +21,13 @@ pub struct NSQInflate<S> {
 impl<S> NSQInflate<S> {
     pub fn new(inner: S) -> Self {
         NSQInflate {
-            inner:         inner,
             inflate:       Box::new(inflate::stream::InflateState::new(miniz_oxide::DataFormat::Raw)),
             input_buffer:  vec![0; 512],
             output_buffer: vec![0; 1024],
             output_start:  0,
             output_end:    0,
             input_end:     0,
+            inner,
         }
     }
 }
@@ -120,13 +120,13 @@ impl<S> NSQDeflate<S> {
         let flags = deflate::core::create_comp_flags_from_zip_params(3, 0, 0);
 
         NSQDeflate {
-            inner:         inner,
             deflate:       Box::new(deflate::core::CompressorOxide::new(flags)),
             input_buffer:  vec![0; 512],
             output_buffer: vec![0; 1024],
             output_start:  0,
             output_end:    0,
             input_end:     0,
+            inner
         }
     }
 }
@@ -219,7 +219,7 @@ impl<S> AsyncWrite for NSQDeflate<S>
     {
         info!("poll_flush");
 
-        return Poll::Ready(Ok(()));
+        Poll::Ready(Ok(()))
     }
 
     fn poll_shutdown(
@@ -229,6 +229,6 @@ impl<S> AsyncWrite for NSQDeflate<S>
     {
         info!("poll_shutdown");
 
-        return Poll::Ready(Ok(()));
+        Poll::Ready(Ok(()))
     }
 }

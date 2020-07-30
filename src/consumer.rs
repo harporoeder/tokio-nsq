@@ -160,7 +160,7 @@ fn remove_old_connections(connections: &mut HashMap<String, NSQConnectionMeta>) 
 }
 
 async fn lookup(
-    address:             &String,
+    address:             &str,
     config:              &NSQConsumerConfig,
     clients_ref:         &std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
     from_connections_tx: &tokio::sync::mpsc::UnboundedSender<NSQEvent>

@@ -10,7 +10,7 @@ pub struct NSQConfigSharedTLS {
 impl NSQConfigSharedTLS {
     /// Construct a TLS configuration object. Defaults are insecure.
     pub fn new() -> Self {
-        return NSQConfigSharedTLS {
+        NSQConfigSharedTLS {
             required:      true,
             client_config: None,
         }
@@ -19,13 +19,13 @@ impl NSQConfigSharedTLS {
     pub fn set_required(mut self, required: bool) -> Self {
         self.required = required;
 
-        return self;
+        self
     }
     /// Set TLS configuration object from `rustls` crate.
     pub fn set_client_config(mut self, client_config: Arc<rustls::ClientConfig>) -> Self {
         self.client_config = Some(client_config);
 
-        return self;
+        self
     }
 }
 
@@ -55,7 +55,7 @@ pub struct NSQConfigShared {
 impl NSQConfigShared {
     /// Construct a configuration with sane defaults.
     pub fn new() -> Self {
-        return NSQConfigShared {
+        NSQConfigShared {
             backoff_max_wait:      std::time::Duration::new(60, 0),
             backoff_healthy_after: std::time::Duration::new(45, 0),
             compression:           None,
@@ -69,37 +69,37 @@ impl NSQConfigShared {
     pub fn set_backoff_max_wait(mut self, duration: std::time::Duration) -> Self {
         self.backoff_max_wait = duration;
 
-        return self;
+        self
     }
     /// How long a connection should be healthy before backoff is reset. Defaults to 45 seconds.
     pub fn set_backoff_healthy_after(mut self, duration: std::time::Duration) -> Self {
         self.backoff_healthy_after = duration;
 
-        return self;
+        self
     }
     /// Connection compression options. Defaults to no compression.
     pub fn set_compression(mut self, compression: NSQConfigSharedCompression) -> Self {
         self.compression = Some(compression);
 
-        return self;
+        self
     }
     /// Credentials to send NSQD if authentication is requried. Defaults to no credentials.
     pub fn set_credentials(mut self, credentials: Vec<u8>) -> Self {
         self.credentials = Some(credentials);
 
-        return self;
+        self
     }
     /// Connection encryption options. Defaults to no encryption
     pub fn set_tls(mut self, tls: NSQConfigSharedTLS) -> Self {
         self.tls = Some(tls);
 
-        return self;
+        self
     }
     /// A string used to identify an NSQ client. Defaults to anonymous identity.
     pub fn set_client_id<S: Into<String>>(mut self, client_id: S) -> Self {
         self.client_id = Some(client_id.into());
 
-        return self;
+        self
     }
 }
 
