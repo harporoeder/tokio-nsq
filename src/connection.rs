@@ -166,8 +166,6 @@ pub enum NSQEvent {
     Unhealthy(),
     /// An acknowledgement for a producer that a message was delivered.
     Ok(),
-    /// A producer failed to queue a message
-    SendFailed(),
 }
 
 impl MessageFromNSQ {
