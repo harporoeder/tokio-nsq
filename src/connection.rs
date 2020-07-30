@@ -146,7 +146,7 @@ pub enum MessageToNSQ {
 /// An NSQ message. If this message is dropped with being finished and the respective NSQ
 /// daemon connection still exists the message will automatically by requeued.
 #[derive(Debug)]
-pub struct MessageFromNSQ {
+pub struct NSQMessage {
         context:   Arc<NSQDConnectionShared>,
         consumed:  bool,
     pub body:      Vec<u8>,
@@ -159,7 +159,7 @@ pub struct MessageFromNSQ {
 #[derive(Debug)]
 pub enum NSQEvent {
     /// An NSQ consumer message
-    Message(MessageFromNSQ),
+    Message(NSQMessage),
     /// Generated when a connection completes a handshake
     Healthy(),
     /// Generated when a connection fails and will be restarted.
@@ -168,7 +168,7 @@ pub enum NSQEvent {
     Ok(),
 }
 
-impl MessageFromNSQ {
+impl NSQMessage {
     /// Sends a message acknowledgement to NSQ.
     pub fn finish(mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
@@ -193,7 +193,7 @@ impl MessageFromNSQ {
     }
 }
 
-impl Drop for MessageFromNSQ {
+impl Drop for NSQMessage {
     fn drop(&mut self) {
         if !self.consumed {
             if self.context.healthy.load(Ordering::SeqCst) {
@@ -201,7 +201,7 @@ impl Drop for MessageFromNSQ {
 
                 self.context.to_connection_tx_ref.send(message).unwrap();
             } else {
-                error!("MessageFromNSQ::drop failed");
+                error!("NSQMessage::drop failed");
             }
         }
     }
@@ -324,7 +324,7 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
                 continue;
             }
             Frame::Message(message) => {
-                from_connection_tx.send(NSQEvent::Message(MessageFromNSQ{
+                from_connection_tx.send(NSQEvent::Message(NSQMessage{
                     context:   shared.clone(),
                     consumed:  false,
                     body:      message.body,

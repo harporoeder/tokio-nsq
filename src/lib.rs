@@ -70,7 +70,7 @@ pub use connection::
     { NSQTopic
     , NSQChannel
     , NSQEvent
-    , MessageFromNSQ
+    , NSQMessage
     };
 
 pub use producer::

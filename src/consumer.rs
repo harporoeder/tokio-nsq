@@ -357,7 +357,7 @@ impl NSQConsumer {
         self.from_connections_rx.recv().await
     }
     /// Consume events from NSQ connections ignoring all connection status events.
-    pub async fn consume_filtered(&mut self) -> Option<MessageFromNSQ> {
+    pub async fn consume_filtered(&mut self) -> Option<NSQMessage> {
         loop {
             let event = self.from_connections_rx.recv().await;
 
