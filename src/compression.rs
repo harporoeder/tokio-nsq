@@ -51,7 +51,7 @@ impl<S> AsyncRead for NSQInflate<S>
                     &this.output_buffer[this.output_start..this.output_start + count]
                 );
 
-                this.output_start = this.output_start + count;
+                this.output_start += count;
 
                 // info!("write count {}", count);
 
@@ -117,7 +117,7 @@ pub struct NSQDeflate<S> {
 
 impl<S> NSQDeflate<S> {
     pub fn new(inner: S) -> Self {
-        let flags = deflate::core::create_comp_flags_from_zip_params(3.into(), 0, 0);
+        let flags = deflate::core::create_comp_flags_from_zip_params(3, 0, 0);
 
         NSQDeflate {
             inner:         inner,
@@ -153,7 +153,7 @@ impl<S> AsyncWrite for NSQDeflate<S>
                 // info!("write poll_inner");
 
                 match AsyncWrite::poll_write(
-                    Pin::new(&mut this.inner), cx, &mut this.output_buffer[this.output_start..this.output_end]
+                    Pin::new(&mut this.inner), cx, &this.output_buffer[this.output_start..this.output_end]
                 ) {
                     Poll::Ready(Ok(0)) => {
                         info!("write ready 0");
@@ -162,7 +162,7 @@ impl<S> AsyncWrite for NSQDeflate<S>
                     Poll::Ready(Ok(n)) => {
                         // info!("write ready {}", n);
 
-                        this.output_start = this.output_start + n;
+                        this.output_start += n;
 
                         if this.output_start != this.output_end {
                             info!("write ready pending");
