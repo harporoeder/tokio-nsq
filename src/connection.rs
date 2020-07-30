@@ -881,6 +881,8 @@ impl NSQDConnection {
 impl Drop for NSQDConnection {
     fn drop(&mut self) {
         trace!("NSQDConnection::drop()");
-        self.shutdown_tx.take().unwrap().send(()).unwrap() // other end should always exist
+        if let Some(shutdown_tx) = self.shutdown_tx.take() {
+            let _ = shutdown_tx.send(());
+        }
     }
 }
