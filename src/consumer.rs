@@ -214,6 +214,8 @@ async fn lookup(
         remove_old_connections(&mut guard);
     }
 
+    tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+
     rebalancer_step(config.max_in_flight, &clients_ref).await;
 
     return Ok(());
