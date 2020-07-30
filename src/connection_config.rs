@@ -29,6 +29,12 @@ impl NSQConfigSharedTLS {
     }
 }
 
+impl Default for NSQConfigSharedTLS {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// NSQD TCP compression options
 #[derive(Debug, Clone)]
 pub enum NSQConfigSharedCompression {
@@ -94,5 +100,11 @@ impl NSQConfigShared {
         self.client_id = Some(client_id.into());
 
         return self;
+    }
+}
+
+impl Default for NSQConfigShared {
+    fn default() -> Self {
+        Self::new()
     }
 }

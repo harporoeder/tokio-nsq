@@ -31,6 +31,12 @@ impl NSQConsumerLookupConfig {
     }
 }
 
+impl Default for NSQConsumerLookupConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// The strategy a consumer should use to connect to NSQD instances
 #[derive(Clone)]
 pub enum NSQConsumerConfigSources {
