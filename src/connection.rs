@@ -22,7 +22,7 @@ fn is_valid_name(name: &str) -> bool {
         return false;
     }
 
-    return NAMEREGEX.is_match(name);
+    NAMEREGEX.is_match(name)
 }
 
 /// A smart constructor validating an NSQ topic name
@@ -38,7 +38,7 @@ impl NSQTopic {
 
         if is_valid_name(&topic) {
             Some(Arc::new(Self{
-                topic: topic
+                topic
             }))
         } else {
             None
@@ -59,7 +59,7 @@ impl NSQChannel {
 
         if is_valid_name(&channel) {
             Some(Arc::new(Self{
-                channel: channel
+                channel
             }))
         } else {
             None
@@ -98,7 +98,7 @@ impl ServerCertVerifier for Unverified {
         _ocsp_response:   &[u8]
     ) -> Result<ServerCertVerified, TLSError>
     {
-        return Ok(ServerCertVerified::assertion());
+        Ok(ServerCertVerified::assertion())
     }
 }
 
@@ -299,7 +299,7 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
         error!("frame_type unknown = {}", frame_type);
     }
 
-    return Ok(Frame::Unknown);
+    Ok(Frame::Unknown)
 }
 
 async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
@@ -353,7 +353,7 @@ async fn write_fin<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"FIN ").await?;
     stream.write_all(&id).await?;
     stream.write_all(b"\n").await?;
-    return Ok(());
+    Ok(())
 }
 
 async fn write_rdy<S: AsyncWrite + std::marker::Unpin>(
@@ -364,7 +364,7 @@ async fn write_rdy<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"RDY ").await?;
     stream.write_all(count.to_string().as_bytes()).await?;
     stream.write_all(b"\n").await?;
-    return Ok(());
+    Ok(())
 }
 
 async fn write_touch<S: AsyncWrite + std::marker::Unpin>(
@@ -375,7 +375,7 @@ async fn write_touch<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"TOUCH ").await?;
     stream.write_all(&id).await?;
     stream.write_all(b"\n").await?;
-    return Ok(());
+    Ok(())
 }
 
 async fn write_requeue<S: AsyncWrite + std::marker::Unpin>(
@@ -386,7 +386,7 @@ async fn write_requeue<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"REQ ").await?;
     stream.write_all(&id).await?;
     stream.write_all(b" 0\n").await?;
-    return Ok(());
+    Ok(())
 }
 
 async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
@@ -398,7 +398,7 @@ async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
     let count = u32::try_from(credentials.len())?.to_be_bytes();
     stream.write_all(&count).await?;
     stream.write_all(&credentials).await?;
-    return Ok(());
+    Ok(())
 }
 
 async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
@@ -478,7 +478,7 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
         },
     }
 
-    return Ok(());
+    Ok(())
 }
 
 async fn handle_command<S: AsyncWrite + std::marker::Unpin>(
@@ -537,7 +537,7 @@ async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::mar
         }
     };
 
-    return Ok(());
+    Ok(())
 }
 
 fn write_to_dyn<S: Send + AsyncWrite + std::marker::Unpin + 'static>(stream_tx: S)
@@ -681,7 +681,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
     run_generic(state, stream_rx, stream_tx).await?;
 
-    return Ok(());
+    Ok(())
 }
 
 pub async fn with_stopper(
@@ -781,7 +781,7 @@ impl NSQDConnection {
     pub fn new(config: NSQDConfig) -> NSQDConnection {
         let (from_connection_tx, from_connection_rx) = tokio::sync::mpsc::unbounded_channel();
 
-        return NSQDConnection::new_with_queues(config, from_connection_tx, from_connection_rx);
+        NSQDConnection::new_with_queues(config, from_connection_tx, from_connection_rx)
     }
 
     pub fn new_with_queue(
@@ -790,7 +790,7 @@ impl NSQDConnection {
     ) -> NSQDConnection {
         let (_, from_connection_rx) = tokio::sync::mpsc::unbounded_channel();
 
-        return NSQDConnection::new_with_queues(config, from_connection_tx, from_connection_rx);
+        NSQDConnection::new_with_queues(config, from_connection_tx, from_connection_rx)
     }
 
     fn new_with_queues(
@@ -816,25 +816,25 @@ impl NSQDConnection {
         tokio::spawn(async move {
             with_stopper(read_shutdown,
                 run_connection_supervisor(NSQDConnectionState {
-                    config:               config,
-                    from_connection_tx:   from_connection_tx,
-                    to_connection_rx:     to_connection_rx,
                     to_connection_tx_ref: to_connection_tx_ref_1,
                     shared:               shared_state_clone,
+                    config,
+                    from_connection_tx,
+                    to_connection_rx,
                 }
             )).await;
         });
 
-        return NSQDConnection {
+        NSQDConnection {
             shutdown_tx:          Some(write_shutdown),
-            from_connection_rx:   from_connection_rx,
             to_connection_tx_ref: to_connection_tx_ref_2,
             shared:               shared_state,
-        };
+            from_connection_rx,
+        }
     }
 
     pub fn healthy(&self) -> bool {
-        return self.shared.healthy.load(Ordering::SeqCst);
+        self.shared.healthy.load(Ordering::SeqCst)
     }
 
     pub async fn consume(&mut self) -> Option<NSQEvent> {
@@ -848,12 +848,12 @@ impl NSQDConnection {
                      "queue message lock failed")));
             }
 
-            return Ok(());
+            Ok(())
         } else {
             warn!("queue message unhealthy");
 
-            return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
-                 "connection is disconnected")));
+            Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                 "connection is disconnected")))
         }
     }
 
