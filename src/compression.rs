@@ -1,7 +1,7 @@
 use super::*;
 
-use miniz_oxide::inflate;
 use miniz_oxide::deflate;
+use miniz_oxide::inflate::stream::{InflateState};
 use core::task::Context;
 use core::task::Poll;
 use tokio::io::Result;
@@ -10,7 +10,7 @@ use std::io::{Error, ErrorKind};
 
 pub struct NSQInflate<S> {
     inner:         S,
-    inflate:       Box<inflate::stream::InflateState>,
+    inflate:       Box<InflateState>,
     input_buffer:  Vec<u8>,
     output_buffer: Vec<u8>,
     output_start:  usize,
@@ -21,7 +21,7 @@ pub struct NSQInflate<S> {
 impl<S> NSQInflate<S> {
     pub fn new(inner: S) -> Self {
         NSQInflate {
-            inflate:       Box::new(inflate::stream::InflateState::new(miniz_oxide::DataFormat::Raw)),
+            inflate:       Box::new(InflateState::new(miniz_oxide::DataFormat::Raw)),
             input_buffer:  vec![0; 512],
             output_buffer: vec![0; 1024],
             output_start:  0,
@@ -153,7 +153,9 @@ impl<S> AsyncWrite for NSQDeflate<S>
                 // info!("write poll_inner");
 
                 match AsyncWrite::poll_write(
-                    Pin::new(&mut this.inner), cx, &this.output_buffer[this.output_start..this.output_end]
+                    Pin::new(&mut this.inner),
+                    cx,
+                    &this.output_buffer[this.output_start..this.output_end]
                 ) {
                     Poll::Ready(Ok(0)) => {
                         info!("write ready 0");
