@@ -843,7 +843,7 @@ impl NSQDConnection {
 
     fn queue_message(&mut self, message: MessageToNSQ) -> Result<(), Error> {
         if self.shared.healthy.load(Ordering::SeqCst) {
-            if let Err(_) = self.to_connection_tx_ref.send(message) {
+            if self.to_connection_tx_ref.send(message).is_err() {
                 return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
                      "queue message lock failed")));
             }
