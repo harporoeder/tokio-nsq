@@ -84,7 +84,7 @@ impl NSQConsumerConfig {
         return self;
     }
     /// What percentage of messages to sample from the stream. N must be > 0 && <= 100. Defaults to
-    /// consuming all messages. If the configured sameple rate is outside of the allowed range the
+    /// consuming all messages. If the configured sample rate is outside of the allowed range the
     /// value will be converted to the nearest valid rate.
     pub fn set_sample_rate(mut self, sample_rate: u8) -> Self {
         self.sample_rate = Some(
