@@ -34,7 +34,9 @@ impl NSQConsumerLookupConfig {
 /// The strategy a consumer should use to connect to NSQD instances
 #[derive(Clone)]
 pub enum NSQConsumerConfigSources {
+    /// An explicit list of NSQD daemons to use.
     Daemons(Vec<String>),
+    /// Configuration for NSQD Lookup daemons.
     Lookup(NSQConsumerLookupConfig)
 }
 
