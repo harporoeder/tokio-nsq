@@ -837,40 +837,28 @@ impl NSQDConnection {
         self.from_connection_rx.recv().await
     }
 
-    pub fn publish(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>) {
+    fn queue_message(&mut self, message: MessageToNSQ) {
         if self.shared.healthy.load(Ordering::SeqCst) {
-            let message = MessageToNSQ::PUB(topic, value);
-
             self.to_connection_tx_ref.send(message).unwrap();
         } else {
-            warn!("publish unhealthy");
+            warn!("queue message unhealthy");
         }
+    }
+
+    pub fn publish(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>) {
+        self.queue_message(MessageToNSQ::PUB(topic, value))
     }
 
     pub fn publish_deferred(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>, delay_seconds: u32) {
-        if self.shared.healthy.load(Ordering::SeqCst) {
-            let message = MessageToNSQ::DPUB(topic, value, delay_seconds);
-
-            self.to_connection_tx_ref.send(message).unwrap();
-        } else {
-            warn!("publish deferred unhealthy");
-        }
+        self.queue_message(MessageToNSQ::DPUB(topic, value, delay_seconds))
     }
 
     pub fn publish_multiple(&mut self, topic: Arc<NSQTopic>, value: Vec<Vec<u8>>) {
-        if self.shared.healthy.load(Ordering::SeqCst) {
-            let message = MessageToNSQ::MPUB(topic, value);
-
-            self.to_connection_tx_ref.send(message).unwrap();
-        } else {
-            warn!("publish unhealthy");
-        }
+        self.queue_message(MessageToNSQ::MPUB(topic, value))
     }
 
     pub fn ready(&mut self, count: u16) -> Result<(), Error> {
-        let message = MessageToNSQ::RDY(count);
-
-        self.to_connection_tx_ref.send(message).unwrap();
+        self.queue_message(MessageToNSQ::RDY(count));
 
         return Ok(());
     }
