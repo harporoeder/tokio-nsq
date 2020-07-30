@@ -46,7 +46,7 @@ println!("waiting on status");
 let status = producer.consume().await;
 println!("status {:?}", status);
 
-producer.publish(&topic, "alice1".to_string().as_bytes().to_vec());
+producer.publish(&topic, "alice1".to_string().as_bytes().to_vec()).unwrap();
 ```
 
 ## Features
