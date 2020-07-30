@@ -225,12 +225,12 @@ impl<S> AsyncWrite for NSQDeflate<S>
     }
 
     fn poll_shutdown(
-        self: Pin<&mut Self>,
-        _cx:  &mut Context,
+        mut self: Pin<&mut Self>,
+        cx:       &mut Context,
     ) -> Poll<Result<()>>
     {
         info!("poll_shutdown");
 
-        Poll::Ready(Ok(()))
+        AsyncWrite::poll_shutdown(Pin::new(&mut self.inner), cx)
     }
 }
