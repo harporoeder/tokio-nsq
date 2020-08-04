@@ -53,8 +53,6 @@ impl<S> AsyncRead for NSQInflate<S>
 
                 this.output_start += count;
 
-                // info!("write count {}", count);
-
                 return Poll::Ready(Ok(count));
             }
 
@@ -63,19 +61,16 @@ impl<S> AsyncRead for NSQInflate<S>
 
             match AsyncRead::poll_read(Pin::new(&mut this.inner), cx, &mut this.input_buffer) {
                 Poll::Ready(Ok(0)) => {
-                    info!("ready 0");
                     return Poll::Ready(Ok(0));
                 }
                 Poll::Ready(Ok(n)) => {
-                    // info!("ready {}", n);
                     this.input_end = n;
                 },
                 Poll::Ready(Err(err)) => {
-                    info!("ready error {}", err);
+                    error!("ready error {}", err);
                     return Poll::Ready(Err(err));
                 },
                 Poll::Pending => {
-                    info!("ready pending");
                     return Poll::Pending;
                 },
             }
@@ -87,19 +82,12 @@ impl<S> AsyncRead for NSQInflate<S>
                 miniz_oxide::MZFlush::Sync
             );
 
-            // info!("got status {} {}", result.bytes_consumed, result.bytes_written);
-
             this.output_end += result.bytes_written;
 
-            match result.status {
-                Ok(_) => {
-                    // info!("status ok");
-                },
-                Err(err) => {
-                    info!("status error {:?}", err);
+            if let Err(err) = result.status {
+                info!("status error {:?}", err);
 
-                    return Poll::Ready(Err(Error::new(ErrorKind::Other, "decompress")));
-                }
+                return Poll::Ready(Err(Error::new(ErrorKind::Other, "decompress")));
             }
         }
     }
@@ -142,46 +130,34 @@ impl<S> AsyncWrite for NSQDeflate<S>
     {
         let this = &mut *self;
 
-        // info!("poll_write");
-
         if buf.is_empty() {
             return Poll::Ready(Ok(0));
         }
 
         loop {
             if this.output_start != this.output_end {
-                // info!("write poll_inner");
-
                 match AsyncWrite::poll_write(
                     Pin::new(&mut this.inner),
                     cx,
                     &this.output_buffer[this.output_start..this.output_end]
                 ) {
                     Poll::Ready(Ok(0)) => {
-                        info!("write ready 0");
                         return Poll::Ready(Ok(0));
                     }
                     Poll::Ready(Ok(n)) => {
-                        // info!("write ready {}", n);
-
                         this.output_start += n;
 
                         if this.output_start != this.output_end {
-                            info!("write ready pending");
-
                             return Poll::Pending;
                         } else {
-                            // info!("write ready done");
-
                             return Poll::Ready(Ok(buf.len()));
                         }
                     },
                     Poll::Ready(Err(err)) => {
-                        info!("write ready error {}", err);
+                        error!("write ready error {}", err);
                         return Poll::Ready(Err(err));
                     },
                     Poll::Pending => {
-                        info!("write ready pending");
                         return Poll::Pending;
                     },
                 }
@@ -197,19 +173,12 @@ impl<S> AsyncWrite for NSQDeflate<S>
                 miniz_oxide::MZFlush::Sync
             );
 
-            // info!("got status {} {}", result.bytes_consumed, result.bytes_written);
-
             this.output_end = result.bytes_written;
 
-            match result.status {
-                Ok(_) => {
-                    // info!("write status ok");
-                },
-                Err(err) => {
-                    info!("write status error {:?}", err);
+            if let Err(err) = result.status {
+                error!("write status error {:?}", err);
 
-                    return Poll::Ready(Err(Error::new(ErrorKind::Other, "compress")));
-                }
+                return Poll::Ready(Err(Error::new(ErrorKind::Other, "compress")));
             }
         }
     }
@@ -219,8 +188,6 @@ impl<S> AsyncWrite for NSQDeflate<S>
         _cx:  &mut Context,
     ) -> Poll<Result<()>>
     {
-        info!("poll_flush");
-
         Poll::Ready(Ok(()))
     }
 
@@ -229,8 +196,6 @@ impl<S> AsyncWrite for NSQDeflate<S>
         cx:       &mut Context,
     ) -> Poll<Result<()>>
     {
-        info!("poll_shutdown");
-
         AsyncWrite::poll_shutdown(Pin::new(&mut self.inner), cx)
     }
 }
