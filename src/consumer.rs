@@ -220,8 +220,6 @@ async fn lookup(
         remove_old_connections(&mut guard);
     }
 
-    tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
-
     rebalancer_step(config.max_in_flight, &clients_ref).await;
 
     Ok(())
@@ -248,7 +246,8 @@ async fn lookup_supervisor(
 async fn rebalancer_step(
     max_in_flight: u32,
     clients_ref:   &std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
-) {
+) -> bool
+{
     let mut guard = clients_ref.lock().unwrap();
 
     let mut healthy = Vec::new();
@@ -260,7 +259,7 @@ async fn rebalancer_step(
     }
 
     if healthy.is_empty() {
-        return;
+        return false;
     }
 
     let partial = max_in_flight / (healthy.len() as u32);
@@ -274,6 +273,8 @@ async fn rebalancer_step(
     for node in healthy.iter_mut() {
         let _ = NSQDConnection::ready(*node, partial as u16);
     }
+
+    true
 }
 
 async fn rebalancer(
@@ -282,9 +283,11 @@ async fn rebalancer(
     clients_ref:        std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
 ) {
     loop {
-        rebalancer_step(max_in_flight, &clients_ref).await;
-
-        tokio::time::delay_for(rebalance_interval).await;
+        if rebalancer_step(max_in_flight, &clients_ref).await {
+            tokio::time::delay_for(rebalance_interval).await;
+        } else {
+            tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+        }
     }
 }
 
