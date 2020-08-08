@@ -837,6 +837,7 @@ dependencies = [
  "lazy_static",
  "log",
  "miniz_oxide",
+ "rand",
  "regex",
  "rustls",
  "serde",
