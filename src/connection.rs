@@ -332,11 +332,9 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
     loop {
         match read_frame_data(stream).await? {
             Frame::Response(body) => {
-                let frame_body_str = std::str::from_utf8(&body)?;
-
-                if frame_body_str == "_heartbeat_" {
+                if body == b"_heartbeat_" {
                     shared.to_connection_tx_ref.send(MessageToNSQ::NOP)?;
-                } else if frame_body_str == "OK" {
+                } else if body == b"OK" {
                     from_connection_tx.send(NSQEvent::Ok())?;
                 }
 
