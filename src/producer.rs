@@ -44,20 +44,24 @@ pub struct NSQProducer {
 }
 
 impl NSQProducer {
+    /// Consume message acknowledgements, and connection status updates.
     pub async fn consume(&mut self) -> Option<NSQEvent> {
         self.connection.consume().await
     }
 
+    /// Queue a PUB message to be asynchronously sent
     pub fn publish(&mut self, topic: &Arc<NSQTopic>, value: Vec<u8>) -> Result<(), Error> {
         self.connection.publish(topic.clone(), value)
     }
 
+    /// Queue a DPUB message to be asynchronously sent
     pub fn publish_deferred(&mut self, topic: &Arc<NSQTopic>, value: Vec<u8>, delay_seconds: u32)
         -> Result<(), Error>
     {
         self.connection.publish_deferred(topic.clone(), value, delay_seconds)
     }
 
+    /// Queue a MPUB message to be asynchronously sent
     pub fn publish_multiple(&mut self, topic: &Arc<NSQTopic>, value: Vec<Vec<u8>>)
         -> Result<(), Error>
     {

@@ -46,7 +46,7 @@ pub enum NSQConsumerConfigSources {
     Lookup(NSQConsumerLookupConfig)
 }
 
-/// Configuration object for an NSQD consumer
+/// Configuration object for an NSQ consumer
 #[derive(Clone)]
 pub struct NSQConsumerConfig {
     topic:              Arc<NSQTopic>,

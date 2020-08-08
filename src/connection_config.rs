@@ -7,7 +7,7 @@ pub struct NSQDeflateLevel {
 }
 
 impl NSQDeflateLevel {
-    /// Compression level must be > 0 && n < 10
+    /// Compression level N must be > 0 && < 10
     pub fn new(level: u8) -> Option<NSQDeflateLevel> {
         if level < 1 || level > 9 {
             None
@@ -15,7 +15,7 @@ impl NSQDeflateLevel {
             Some(NSQDeflateLevel { level })
         }
     }
-
+    /// Return the compression level
     pub fn get(&self) -> u8 {
         self.level
     }
