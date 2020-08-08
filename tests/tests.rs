@@ -83,7 +83,9 @@ async fn basic_direct_compression() {
 
     let mut producer = NSQProducerConfig::new("127.0.0.1:4150")
         .set_shared(
-            NSQConfigShared::new().set_compression(NSQConfigSharedCompression::Deflate(3))
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
+            )
         )
         .build();
 
@@ -97,7 +99,9 @@ async fn basic_direct_compression() {
         .set_max_in_flight(1)
         .set_sources(NSQConsumerConfigSources::Daemons(addresses))
         .set_shared(
-            NSQConfigShared::new().set_compression(NSQConfigSharedCompression::Deflate(3))
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
+            )
         )
         .build();
 

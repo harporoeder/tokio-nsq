@@ -1,5 +1,22 @@
 use std::sync::Arc;
 
+/// A smart constructor validating a deflate compression level
+#[derive(Clone, Debug)]
+pub struct NSQDeflateLevel {
+    pub(crate) level: u8
+}
+
+impl NSQDeflateLevel{
+    /// Compression level must be > 0 && n < 10
+    pub fn new(level: u8) -> Option<NSQDeflateLevel> {
+        if level < 1 || level > 9 {
+            None
+        } else {
+            Some(NSQDeflateLevel { level })
+        }
+    }
+}
+
 /// NSQD TLS encryption options
 #[derive(Clone)]
 pub struct NSQConfigSharedTLS {
@@ -38,7 +55,7 @@ impl Default for NSQConfigSharedTLS {
 /// NSQD TCP compression options
 #[derive(Debug, Clone)]
 pub enum NSQConfigSharedCompression {
-    Deflate(u8)
+    Deflate(NSQDeflateLevel)
 }
 
 /// Configuration options shared by both produces and consumers

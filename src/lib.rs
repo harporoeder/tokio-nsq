@@ -89,4 +89,5 @@ pub use connection_config::
     { NSQConfigSharedTLS
     , NSQConfigSharedCompression
     , NSQConfigShared
+    , NSQDeflateLevel
     };
