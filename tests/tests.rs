@@ -4,16 +4,21 @@ use tokio_nsq::*;
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 use std::collections::HashSet;
+use std::sync::Arc;
 
-#[tokio::test]
-async fn basic_consume_direct() {
-    let rand_topic: String = thread_rng()
+fn random_topic() -> Arc<NSQTopic> {
+    let name: String = thread_rng()
         .sample_iter(&Alphanumeric)
         .take(30)
         .collect();
 
-    let topic   = NSQTopic::new(rand_topic).unwrap();
-    let channel = NSQChannel::new("first").unwrap();
+    NSQTopic::new(name).unwrap()
+}
+
+#[tokio::test]
+async fn basic_consume_direct() {
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
 
     let mut producer = NSQProducerConfig::new("127.0.0.1:4150").build();
 
@@ -38,13 +43,8 @@ async fn basic_consume_direct() {
 
 #[tokio::test]
 async fn basic_consume_lookup() {
-    let rand_topic: String = thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(30)
-        .collect();
-
-    let topic   = NSQTopic::new(rand_topic).unwrap();
-    let channel = NSQChannel::new("first").unwrap();
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
 
     let mut producer = NSQProducerConfig::new("127.0.0.1:4150").build();
 
