@@ -1,6 +1,6 @@
 [package]
 name         = "tokio-nsq"
-version      = "0.5.2"
+version      = "0.5.3"
 authors      = ["Harpo Roeder <roedeharpo@protonmail.ch>"]
 edition      = "2018"
 license      = "BSD-3-Clause"
