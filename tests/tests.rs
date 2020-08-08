@@ -1,4 +1,6 @@
 extern crate rand;
+#[macro_use]
+extern crate matches;
 
 use tokio_nsq::*;
 use rand::{thread_rng, Rng};
@@ -25,8 +27,9 @@ async fn basic_consume_direct() {
     let mut addresses = std::vec::Vec::new();
     addresses.push("127.0.0.1:4150".to_string());
 
-    let _ = producer.consume().await;
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
     producer.publish(&topic, b"alice1".to_vec()).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let mut consumer = NSQConsumerConfig::new(topic, channel)
         .set_max_in_flight(1)
@@ -51,8 +54,9 @@ async fn basic_consume_lookup() {
     let mut addresses = std::vec::Vec::new();
     addresses.push("127.0.0.1:4150".to_string());
 
-    let _ = producer.consume().await;
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
     producer.publish(&topic, b"alice2".to_vec()).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let mut addresses = HashSet::new();
     addresses.insert("http://127.0.0.1:4161".to_string());
@@ -92,8 +96,9 @@ async fn basic_direct_compression() {
     let mut addresses = std::vec::Vec::new();
     addresses.push("127.0.0.1:4150".to_string());
 
-    let _ = producer.consume().await;
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
     producer.publish(&topic, b"alice3".to_vec()).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let mut consumer = NSQConsumerConfig::new(topic, channel)
         .set_max_in_flight(1)

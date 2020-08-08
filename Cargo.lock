@@ -363,6 +363,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "matches"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
+
+[[package]]
 name = "memchr"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -836,6 +842,7 @@ dependencies = [
  "hyper",
  "lazy_static",
  "log",
+ "matches",
  "miniz_oxide",
  "rand",
  "regex",
