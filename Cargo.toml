@@ -22,6 +22,7 @@ regex        = "1"
 lazy_static  = "1.4"
 backoff      = "0.2.1"
 miniz_oxide  = "0.4.0"
+gethostname  = "0.2.1"
 
 [dev-dependencies]
 rand      = "0.7.3"

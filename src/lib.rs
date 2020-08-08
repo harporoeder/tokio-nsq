@@ -46,6 +46,7 @@ extern crate regex;
 extern crate lazy_static;
 extern crate backoff;
 extern crate miniz_oxide;
+extern crate gethostname;
 
 use std::collections::HashMap;
 use std::collections::HashSet;

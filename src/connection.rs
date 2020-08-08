@@ -578,7 +578,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
     let identify_body = IdentifyBody {
         client_id:           state.config.shared.client_id.clone(),
-        hostname:            "my-hostname".to_string(),
+        hostname:            gethostname::gethostname().to_string_lossy().to_string(),
         user_agent:          "rustnsq/".to_string() + &built_info::PKG_VERSION.to_string(),
         feature_negotiation: true,
         tls_v1:              state.config.shared.tls.is_some(),
