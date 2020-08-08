@@ -1,7 +1,7 @@
 //! A Rust [NSQ](https://nsq.io/) client built on [Tokio](https://github.com/tokio-rs/tokio).
 //! Tokio NSQ aims to be a feature complete NSQ client implementation.
 //!
-//! ## A basic producer example:
+//! ## A basic consumer example:
 //!```no_run
 //!use tokio_nsq::*;
 //! # #[tokio::main]
