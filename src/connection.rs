@@ -160,7 +160,7 @@ pub enum MessageToNSQ {
     SUB(Arc<NSQTopic>, Arc<NSQChannel>),
     RDY(u16),
     FIN([u8; 16]),
-    REQ([u8; 16]),
+    REQ([u8; 16], u16),
     TOUCH([u8; 16]),
 }
 
@@ -218,7 +218,7 @@ impl Drop for NSQMessage {
     fn drop(&mut self) {
         if !self.consumed {
             if self.context.healthy.load(Ordering::SeqCst) {
-                let message = MessageToNSQ::REQ(self.id);
+                let message = MessageToNSQ::REQ(self.id, self.attempt);
 
                 self.context.to_connection_tx_ref.send(message).unwrap();
             } else {
@@ -504,7 +504,7 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;
         },
-        MessageToNSQ::REQ(id) => {
+        MessageToNSQ::REQ(id, _) => {
             write_requeue(stream, &id).await?;
         },
     }
