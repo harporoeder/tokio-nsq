@@ -67,6 +67,23 @@ impl NSQChannel {
     }
 }
 
+/// A smart constructor validating an NSQ sample rate
+#[derive(Clone, Debug, Copy)]
+pub struct NSQSampleRate {
+    pub(crate) rate: u8
+}
+
+impl NSQSampleRate {
+    /// N must be > 0 && <= 100
+    pub fn new(rate: u8) -> Option<NSQSampleRate> {
+        if rate < 1 || rate > 100 {
+            None
+        } else {
+            Some(NSQSampleRate { rate })
+        }
+    }
+}
+
 #[derive(Debug, Fail)]
 struct NoneError;
 
@@ -766,7 +783,7 @@ pub struct NSQDConfig {
     pub address:     String,
     pub subscribe:   Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
     pub shared:      NSQConfigShared,
-    pub sample_rate: Option<u8>,
+    pub sample_rate: Option<NSQSampleRate>,
 }
 
 pub struct NSQDConnection {

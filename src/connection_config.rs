@@ -6,7 +6,7 @@ pub struct NSQDeflateLevel {
     pub(crate) level: u8
 }
 
-impl NSQDeflateLevel{
+impl NSQDeflateLevel {
     /// Compression level must be > 0 && n < 10
     pub fn new(level: u8) -> Option<NSQDeflateLevel> {
         if level < 1 || level > 9 {

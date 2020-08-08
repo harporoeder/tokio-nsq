@@ -54,7 +54,7 @@ pub struct NSQConsumerConfig {
     sources:            NSQConsumerConfigSources,
     shared:             NSQConfigShared,
     max_in_flight:      u32,
-    sample_rate:        Option<u8>,
+    sample_rate:        Option<NSQSampleRate>,
     rebalance_interval: std::time::Duration,
 }
 
@@ -91,23 +91,9 @@ impl NSQConsumerConfig {
 
         self
     }
-    /// What percentage of messages to sample from the stream. N must be > 0 && <= 100. Defaults to
-    /// consuming all messages. If the configured sample rate is outside of the allowed range the
-    /// value will be converted to the nearest valid rate.
-    pub fn set_sample_rate(mut self, sample_rate: u8) -> Self {
-        self.sample_rate = Some(
-            if sample_rate == 0 {
-                warn!("set sample rate invalid range, setting to 1");
-
-                1
-            } else if sample_rate > 100 {
-                warn!("set sample rate invalid range, setting to 100");
-
-                100
-            } else {
-                sample_rate
-            }
-        );
+    /// What percentage of messages to sample from the stream. Defaults to consuming all messages.
+    pub fn set_sample_rate(mut self, sample_rate: NSQSampleRate) -> Self {
+        self.sample_rate = Some(sample_rate);
 
         self
     }
@@ -199,7 +185,7 @@ async fn lookup(
                             address:     address.clone(),
                             subscribe:   Some((config.topic.clone(), config.channel.clone())),
                             shared:      config.shared.clone(),
-                            sample_rate: config.sample_rate,
+                            sample_rate: config.sample_rate.clone(),
                         },
                         from_connections_tx.clone()
                     );
