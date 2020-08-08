@@ -136,7 +136,7 @@ struct IdentifyBody {
 
 #[derive(serde::Deserialize)]
 struct IdentifyResponse {
-    max_rdy_count:         u32,
+    max_rdy_count:         u16,
     version:               String,
     max_msg_timeout:       u32,
     msg_timeout:           u32,
@@ -243,6 +243,7 @@ struct NSQDConnectionShared {
     to_connection_tx_ref: std::sync::Arc<tokio::sync::mpsc::UnboundedSender<MessageToNSQ>>,
     inflight:             AtomicU64,
     current_ready:        AtomicU16,
+    max_ready:            AtomicU16,
 }
 
 struct FrameMessage {
@@ -480,10 +481,20 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
             stream.write_all(channel.channel.as_bytes()).await?;
             stream.write_all(b"\n").await?;
         },
-        MessageToNSQ::RDY(count) => {
-            if count != shared.current_ready.load(Ordering::SeqCst) {
-                write_rdy(stream, count).await?;
-                shared.current_ready.store(count, Ordering::SeqCst);
+        MessageToNSQ::RDY(requested_ready) => {
+            if requested_ready != shared.current_ready.load(Ordering::SeqCst) {
+                let max_ready = shared.max_ready.load(Ordering::SeqCst);
+
+                let actual_ready = if requested_ready > max_ready {
+                    warn!("requested_ready > max_ready setting ready to max_ready");
+
+                    max_ready
+                } else {
+                    requested_ready
+                };
+
+                write_rdy(stream, actual_ready).await?;
+                shared.current_ready.store(actual_ready, Ordering::SeqCst);
             }
         },
         MessageToNSQ::FIN(id) => {
@@ -602,6 +613,8 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
                  "feature negotiation failed")));
         }
     };
+
+    state.shared.max_ready.store(settings.max_rdy_count, Ordering::SeqCst);
 
     let config_tls =
         if let Some(config_tls) = &state.config.shared.tls {
@@ -830,6 +843,7 @@ impl NSQDConnection {
             to_connection_tx_ref: to_connection_tx_ref_1.clone(),
             inflight:             AtomicU64::new(0),
             current_ready:        AtomicU16::new(0),
+            max_ready:            AtomicU16::new(0),
         });
 
         let shared_state_clone = shared_state.clone();
