@@ -808,10 +808,12 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
 
 #[derive(Clone)]
 pub struct NSQDConfig {
-    pub address:     String,
-    pub subscribe:   Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
-    pub shared:      NSQConfigShared,
-    pub sample_rate: Option<NSQSampleRate>,
+    pub address:            String,
+    pub subscribe:          Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
+    pub shared:             NSQConfigShared,
+    pub sample_rate:        Option<NSQSampleRate>,
+    pub max_requeue_delay:  std::time::Duration,
+    pub base_requeue_delay: std::time::Duration,
 }
 
 pub struct NSQDConnection {

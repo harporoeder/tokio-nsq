@@ -29,10 +29,12 @@ impl NSQProducerConfig {
     pub fn build(self) -> NSQProducer {
         NSQProducer {
             connection: NSQDConnection::new(NSQDConfig {
-                address:     self.address,
-                subscribe:   None,
-                shared:      self.shared,
-                sample_rate: None,
+                address:            self.address,
+                subscribe:          None,
+                shared:             self.shared,
+                sample_rate:        None,
+                max_requeue_delay:  std::time::Duration::from_secs(60 * 15),
+                base_requeue_delay: std::time::Duration::from_secs(90),
             })
         }
     }

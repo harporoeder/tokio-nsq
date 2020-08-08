@@ -186,10 +186,14 @@ async fn lookup(
 
                     let mut client = NSQDConnection::new_with_queue(
                         NSQDConfig {
-                            address:     address.clone(),
-                            subscribe:   Some((config.topic.clone(), config.channel.clone())),
-                            shared:      config.shared.clone(),
-                            sample_rate: config.sample_rate,
+                            address:            address.clone(),
+                            shared:             config.shared.clone(),
+                            sample_rate:        config.sample_rate,
+                            max_requeue_delay:  std::time::Duration::from_secs(15),
+                            base_requeue_delay: std::time::Duration::from_secs(10),
+                            subscribe:          Some(
+                                (config.topic.clone(), config.channel.clone())
+                            ),
                         },
                         from_connections_tx.clone()
                     );
@@ -300,10 +304,14 @@ impl NSQConsumer {
 
                     let client = NSQDConnection::new_with_queue(
                         NSQDConfig {
-                            address:     address.clone(),
-                            subscribe:   Some((config.topic.clone(), config.channel.clone())),
-                            shared:      config.shared.clone(),
-                            sample_rate: config.sample_rate,
+                            address:            address.clone(),
+                            shared:             config.shared.clone(),
+                            sample_rate:        config.sample_rate,
+                            max_requeue_delay:  std::time::Duration::from_secs(15),
+                            base_requeue_delay: std::time::Duration::from_secs(10),
+                            subscribe:          Some(
+                                (config.topic.clone(), config.channel.clone())
+                            ),
                         },
                         from_connections_tx.clone()
                     );
