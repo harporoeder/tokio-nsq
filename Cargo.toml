@@ -27,3 +27,6 @@ miniz_oxide  = "0.4.0"
 rand      = "0.7.3"
 simplelog = "0.8"
 matches   = "0.1.8"
+
+[build-dependencies]
+built = "0.4"
