@@ -26,6 +26,7 @@ impl NSQDeflateLevel {
 pub struct NSQConfigSharedTLS {
     pub(crate) required:      bool,
     pub(crate) client_config: Option<Arc<rustls::ClientConfig>>,
+    pub(crate) domain_name:   String,
 }
 
 impl NSQConfigSharedTLS {
@@ -34,6 +35,7 @@ impl NSQConfigSharedTLS {
         NSQConfigSharedTLS {
             required:      true,
             client_config: None,
+            domain_name:   "test".to_string(),
         }
     }
     /// If the connection should fail if TLS is not supported. Defaults to true.

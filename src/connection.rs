@@ -634,7 +634,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         };
 
         let config = TlsConnector::from(config);
-        let dnsname = DNSNameRef::try_from_ascii_str("abctest.com")?;
+        let dnsname = DNSNameRef::try_from_ascii_str(&config_tls.domain_name)?;
 
         let stream = config.connect(dnsname, stream).await?;
 
