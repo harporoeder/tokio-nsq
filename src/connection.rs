@@ -422,6 +422,7 @@ async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
 }
 
 async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
+    _config: &NSQDConfig,
     shared:  &Arc<NSQDConnectionShared>,
     message: MessageToNSQ,
     stream:  &mut S
@@ -511,7 +512,8 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
     Ok(())
 }
 
-async fn handle_command<S: AsyncWrite + std::marker::Unpin>(
+async fn handle_commands<S: AsyncWrite + std::marker::Unpin>(
+    config:           &NSQDConfig,
     shared:           &Arc<NSQDConnectionShared>,
     to_connection_rx: &mut tokio::sync::mpsc::UnboundedReceiver<MessageToNSQ>,
     stream:           &mut S
@@ -520,7 +522,7 @@ async fn handle_command<S: AsyncWrite + std::marker::Unpin>(
     loop {
         let message = to_connection_rx.recv().await.ok_or(NoneError)?;
 
-        handle_single_command(shared, message, stream).await?;
+        handle_single_command(config, shared, message, stream).await?;
     }
 }
 
@@ -529,15 +531,19 @@ async fn handle_stop(stop: &mut tokio::sync::oneshot::Receiver<()>) {
 }
 
 async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::marker::Unpin>(
-    state:     &mut NSQDConnectionState,
+    state:         &mut NSQDConnectionState,
     mut stream_rx: R,
     mut stream_tx: W,
 ) -> Result<(), Error>
 {
     match &state.config.subscribe {
         Some((channel, topic)) => {
-            handle_single_command(&state.shared, MessageToNSQ::SUB(channel.clone(), topic.clone()),
-                &mut stream_tx).await?;
+            handle_single_command(
+                &state.config,&state.shared,
+                MessageToNSQ::SUB(channel.clone(),
+                topic.clone()),
+                &mut stream_tx
+            ).await?;
 
             match read_frame_data(&mut stream_rx).await? {
                 Frame::Response(_) => {
@@ -555,8 +561,13 @@ async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::mar
 
     state.from_connection_tx.send(NSQEvent::Healthy())?;
 
-    let f1 = handle_command(&state.shared, &mut state.to_connection_rx, &mut stream_tx);
-    let f2 = handle_reads(&mut stream_rx, &state.shared, &mut state.from_connection_tx);
+    let f1 = handle_commands(
+        &state.config, &state.shared, &mut state.to_connection_rx, &mut stream_tx
+    );
+
+    let f2 = handle_reads(
+        &mut stream_rx, &state.shared, &mut state.from_connection_tx
+    );
 
     tokio::select! {
         status = f1 => {
