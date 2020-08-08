@@ -31,11 +31,11 @@ pub struct NSQConfigSharedTLS {
 
 impl NSQConfigSharedTLS {
     /// Construct a TLS configuration object. Defaults are insecure.
-    pub fn new() -> Self {
+    pub fn new<S: Into<String>>(domain: S) -> Self {
         NSQConfigSharedTLS {
             required:      true,
             client_config: None,
-            domain_name:   "test".to_string(),
+            domain_name:   domain.into(),
         }
     }
     /// If the connection should fail if TLS is not supported. Defaults to true.
@@ -49,12 +49,6 @@ impl NSQConfigSharedTLS {
         self.client_config = Some(client_config);
 
         self
-    }
-}
-
-impl Default for NSQConfigSharedTLS {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
