@@ -398,17 +398,6 @@ async fn write_touch<S: AsyncWrite + std::marker::Unpin>(
     Ok(())
 }
 
-async fn write_requeue<S: AsyncWrite + std::marker::Unpin>(
-    stream: &mut S,
-    id:     &[u8]
-) -> Result<(), Error>
-{
-    stream.write_all(b"REQ ").await?;
-    stream.write_all(&id).await?;
-    stream.write_all(b" 0\n").await?;
-    Ok(())
-}
-
 async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
     stream:      &mut S,
     credentials: &[u8]
@@ -422,7 +411,7 @@ async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
 }
 
 async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
-    _config: &NSQDConfig,
+    config:  &NSQDConfig,
     shared:  &Arc<NSQDConnectionShared>,
     message: MessageToNSQ,
     stream:  &mut S
@@ -504,8 +493,19 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;
         },
-        MessageToNSQ::REQ(id, _) => {
-            write_requeue(stream, &id).await?;
+        MessageToNSQ::REQ(id, attempt) => {
+            let count: u128 = std::cmp::min(
+                config.base_requeue_delay
+                    .checked_mul(attempt as u32)
+                    .unwrap_or(std::time::Duration::new(u64::MAX, u32::MAX)),
+                config.max_requeue_delay
+            ).as_millis();
+
+            stream.write_all(b"REQ ").await?;
+            stream.write_all(&id).await?;
+            stream.write_all(b" \n").await?;
+            stream.write_all(count.to_string().as_bytes()).await?;
+            stream.write_all(b"\n").await?;
         },
     }
 
