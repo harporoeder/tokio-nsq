@@ -38,7 +38,17 @@ impl NSQProducerConfig {
     }
 }
 
-/// An NSQD producer corresponding to a single instance
+/// An NSQD producer corresponding to a single instance.
+///
+/// Before any messages are published you must wait for an `NSQEvent::Healthy()` message.
+/// If any messages are queued while the connection is unhealthy the publish method shall return
+/// an error and the message will not be queued. Messages are queued and delivered asynchronously.
+/// Once NSQ acknowledges a message an `NSQEvent::Ok()` will be available from `consume`.
+///
+/// Multiple messages can be queued before any are acknowledged. You do not need to wait on
+/// `consume` immediately after each publish. If any `NSQEvent::Unhealthy()` event is ever
+/// returned, all unacknowledged messages up to that point are now considered failed, and must be
+/// requeued. A producer will not buffer messages waiting for a healthy connection.
 pub struct NSQProducer {
     connection: NSQDConnection,
 }
@@ -61,7 +71,7 @@ impl NSQProducer {
         self.connection.publish_deferred(topic.clone(), value, delay_seconds)
     }
 
-    /// Queue a MPUB message to be asynchronously sent
+    /// Queue an MPUB message to be asynchronously sent
     pub fn publish_multiple(&mut self, topic: &Arc<NSQTopic>, value: Vec<Vec<u8>>)
         -> Result<(), Error>
     {
