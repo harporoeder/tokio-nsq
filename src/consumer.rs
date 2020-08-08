@@ -46,7 +46,11 @@ pub enum NSQConsumerConfigSources {
     Lookup(NSQConsumerLookupConfig)
 }
 
-/// Configuration object for an NSQ consumer
+/// Configuration object for an NSQ consumer.
+///
+/// A consumer will automatically restart and maintain connections to multiple NSQD instances.
+/// As connections die, and restart `REQ` will automatically be rebalanced to the active
+/// connections.
 #[derive(Clone)]
 pub struct NSQConsumerConfig {
     topic:              Arc<NSQTopic>,
