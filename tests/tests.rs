@@ -21,7 +21,7 @@ async fn basic_consume_direct() {
     addresses.push("127.0.0.1:4150".to_string());
 
     let _ = producer.consume().await;
-    producer.publish(&topic, "alice1".to_string().as_bytes().to_vec()).unwrap();
+    producer.publish(&topic, b"alice1".to_vec()).unwrap();
 
     let mut consumer = NSQConsumerConfig::new(topic, channel)
         .set_max_in_flight(1)
@@ -52,7 +52,7 @@ async fn basic_consume_lookup() {
     addresses.push("127.0.0.1:4150".to_string());
 
     let _ = producer.consume().await;
-    producer.publish(&topic, "alice1".to_string().as_bytes().to_vec()).unwrap();
+    producer.publish(&topic, b"alice1".to_vec()).unwrap();
 
     let mut addresses = HashSet::new();
     addresses.insert("http://127.0.0.1:4161".to_string());
