@@ -52,7 +52,7 @@ async fn basic_consume_lookup() {
     addresses.push("127.0.0.1:4150".to_string());
 
     let _ = producer.consume().await;
-    producer.publish(&topic, b"alice1".to_vec()).unwrap();
+    producer.publish(&topic, b"alice2".to_vec()).unwrap();
 
     let mut addresses = HashSet::new();
     addresses.insert("http://127.0.0.1:4161".to_string());
@@ -71,7 +71,40 @@ async fn basic_consume_lookup() {
     let message = consumer.consume_filtered().await.unwrap();
 
     assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"alice1");
+    assert_eq!(message.body, b"alice2");
+
+    message.finish();
+}
+
+#[tokio::test]
+async fn basic_direct_compression() {
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
+
+    let mut producer = NSQProducerConfig::new("127.0.0.1:4150")
+        .set_shared(
+            NSQConfigShared::new().set_compression(NSQConfigSharedCompression::Deflate(3))
+        )
+        .build();
+
+    let mut addresses = std::vec::Vec::new();
+    addresses.push("127.0.0.1:4150".to_string());
+
+    let _ = producer.consume().await;
+    producer.publish(&topic, b"alice3".to_vec()).unwrap();
+
+    let mut consumer = NSQConsumerConfig::new(topic, channel)
+        .set_max_in_flight(1)
+        .set_sources(NSQConsumerConfigSources::Daemons(addresses))
+        .set_shared(
+            NSQConfigShared::new().set_compression(NSQConfigSharedCompression::Deflate(3))
+        )
+        .build();
+
+    let message = consumer.consume_filtered().await.unwrap();
+
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, b"alice3");
 
     message.finish();
 }
