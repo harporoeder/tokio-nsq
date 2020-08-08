@@ -42,11 +42,12 @@ let topic = NSQTopic::new("names").unwrap();
 
 let mut producer = NSQProducerConfig::new("127.0.0.1:4150").build();
 
-println!("waiting on status");
-let status = producer.consume().await;
-println!("status {:?}", status);
-
+// Wait until a connection is initialized
+assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
+// Publish a single message
 producer.publish(&topic, b"alice1".to_vec()).unwrap();
+/// Wait until the message is acknowledged by NSQ
+assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 ```
 
 ## Features
