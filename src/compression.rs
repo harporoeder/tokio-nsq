@@ -104,8 +104,8 @@ pub struct NSQDeflate<S> {
 }
 
 impl<S> NSQDeflate<S> {
-    pub fn new(inner: S) -> Self {
-        let flags = deflate::core::create_comp_flags_from_zip_params(3, 0, 0);
+    pub fn new(inner: S, level: u8) -> Self {
+        let flags = deflate::core::create_comp_flags_from_zip_params(level as i32, 0, 0);
 
         NSQDeflate {
             deflate:       Box::new(deflate::core::CompressorOxide::new(flags)),

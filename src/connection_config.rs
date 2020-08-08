@@ -15,6 +15,10 @@ impl NSQDeflateLevel {
             Some(NSQDeflateLevel { level })
         }
     }
+
+    pub fn get(&self) -> u8 {
+        self.level
+    }
 }
 
 /// NSQD TLS encryption options

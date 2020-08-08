@@ -185,7 +185,7 @@ async fn lookup(
                             address:     address.clone(),
                             subscribe:   Some((config.topic.clone(), config.channel.clone())),
                             shared:      config.shared.clone(),
-                            sample_rate: config.sample_rate.clone(),
+                            sample_rate: config.sample_rate,
                         },
                         from_connections_tx.clone()
                     );
