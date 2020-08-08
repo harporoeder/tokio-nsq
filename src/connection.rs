@@ -82,6 +82,10 @@ impl NSQSampleRate {
             Some(NSQSampleRate { rate })
         }
     }
+
+    pub fn get(&self) -> u8 {
+        self.rate
+    }
 }
 
 #[derive(Debug, Fail)]
@@ -579,7 +583,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         feature_negotiation: true,
         tls_v1:              state.config.shared.tls.is_some(),
         deflate:             state.config.shared.compression.is_some(),
-        sample_rate:         None,
+        sample_rate:         state.config.sample_rate.map(|rate| rate.get()),
     };
 
     let serialized = serde_json::to_string(&identify_body)?;
