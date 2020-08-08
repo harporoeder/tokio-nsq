@@ -116,6 +116,21 @@ impl NSQConsumerConfig {
         self
     }
 
+    /// The maximum limit on how long a requeued message is delayed. Defaults to 15 minutes.
+    pub fn set_max_requeue_interval(mut self, interval: std::time::Duration) -> Self {
+        self.max_requeue_delay = interval;
+
+        self
+    }
+
+    /// When a message is first requeued, this controls how long it should be delayed for.
+    /// Defaults to 90 seconds.
+    pub fn set_base_requeue_interval(mut self, interval: std::time::Duration) -> Self {
+        self.base_requeue_delay = interval;
+
+        self
+    }
+
     /// Construct an NSQ consumer with this configuration.
     pub fn build(self) -> NSQConsumer {
         NSQConsumer::new(self)
