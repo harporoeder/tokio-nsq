@@ -8,8 +8,6 @@ repository  = "https://github.com/harporoeder/tokio-nsq"
 description = "A rust NSQ client built on Tokio. Tokio NSQ aims to be a feature complete NSQ client implementation."
 readme      = "README.md"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 hyper        = "0.13"
 tokio        = { version = "0.2.22", features = ["full"] }
