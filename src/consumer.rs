@@ -17,12 +17,14 @@ impl NSQConsumerLookupConfig {
             addresses:     HashSet::new(),
         }
     }
+
     /// How often an NSQD Lookup Daemon instance should be queried. Defaults to every 60 seconds.
     pub fn set_poll_interval(mut self, poll_interval: std::time::Duration) -> Self {
         self.poll_interval = poll_interval;
 
         self
     }
+
     /// The set of HTTP addresses for NSQ Lookup Daemon connections. Defaults to no connections.
     pub fn set_addresses(mut self, addresses: HashSet<String>) -> Self {
         self.addresses = addresses;
@@ -56,6 +58,8 @@ pub struct NSQConsumerConfig {
     max_in_flight:      u32,
     sample_rate:        Option<NSQSampleRate>,
     rebalance_interval: std::time::Duration,
+    max_requeue_delay:  std::time::Duration,
+    base_requeue_delay: std::time::Duration,
 }
 
 impl NSQConsumerConfig {
@@ -67,10 +71,13 @@ impl NSQConsumerConfig {
             max_in_flight:      1,
             sample_rate:        None,
             rebalance_interval: std::time::Duration::new(5, 0),
+            max_requeue_delay:  std::time::Duration::from_secs(60 * 15),
+            base_requeue_delay: std::time::Duration::from_secs(90),
             topic,
             channel,
         }
     }
+
     /// The maximum number of messages to process at once shared across all connections.
     /// Defaults to a single message.
     pub fn set_max_in_flight(mut self, max_in_flight: u32) -> Self {
@@ -78,6 +85,7 @@ impl NSQConsumerConfig {
 
         self
     }
+
     /// Where an NSQ consumer should find connections. Either an explicit list of NSQ Daemons,
     /// or a list of NSQ Lookup Daemons to find NSQ instances. Defaults to no connections.
     pub fn set_sources(mut self, sources: NSQConsumerConfigSources) -> Self {
@@ -85,18 +93,21 @@ impl NSQConsumerConfig {
 
         self
     }
+
     /// NSQ Daemon connection options, such as compression and TLS.
     pub fn set_shared(mut self, shared: NSQConfigShared) -> Self {
         self.shared = shared;
 
         self
     }
+
     /// What percentage of messages to sample from the stream. Defaults to consuming all messages.
     pub fn set_sample_rate(mut self, sample_rate: NSQSampleRate) -> Self {
         self.sample_rate = Some(sample_rate);
 
         self
     }
+
     /// To maintain max in flight NSQ Daemons need to periodically have the ready count
     /// rebalanced. For example as nodes fail. Defaults to every 5 seconds.
     pub fn set_rebalance_interval(mut self, rebalance_interval: std::time::Duration) -> Self {
@@ -104,6 +115,7 @@ impl NSQConsumerConfig {
 
         self
     }
+
     /// Construct an NSQ consumer with this configuration.
     pub fn build(self) -> NSQConsumer {
         NSQConsumer::new(self)
@@ -189,8 +201,8 @@ async fn lookup(
                             address:            address.clone(),
                             shared:             config.shared.clone(),
                             sample_rate:        config.sample_rate,
-                            max_requeue_delay:  std::time::Duration::from_secs(15),
-                            base_requeue_delay: std::time::Duration::from_secs(10),
+                            max_requeue_delay:  config.max_requeue_delay,
+                            base_requeue_delay: config.base_requeue_delay,
                             subscribe:          Some(
                                 (config.topic.clone(), config.channel.clone())
                             ),
@@ -307,8 +319,8 @@ impl NSQConsumer {
                             address:            address.clone(),
                             shared:             config.shared.clone(),
                             sample_rate:        config.sample_rate,
-                            max_requeue_delay:  std::time::Duration::from_secs(15),
-                            base_requeue_delay: std::time::Duration::from_secs(10),
+                            max_requeue_delay:  config.max_requeue_delay,
+                            base_requeue_delay: config.base_requeue_delay,
                             subscribe:          Some(
                                 (config.topic.clone(), config.channel.clone())
                             ),
@@ -361,10 +373,12 @@ impl NSQConsumer {
 
         pool
     }
+
     /// Consume events from NSQ connections including status events.
     pub async fn consume(&mut self) -> Option<NSQEvent> {
         self.from_connections_rx.recv().await
     }
+
     /// Consume events from NSQ connections ignoring all connection status events.
     pub async fn consume_filtered(&mut self) -> Option<NSQMessage> {
         loop {
