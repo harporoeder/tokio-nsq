@@ -25,4 +25,6 @@ regex             = "1"
 lazy_static       = "1.4"
 backoff           = "0.2.1"
 miniz_oxide       = "0.4.0"
-rand              = "0.7.3"
+
+[dev-dependencies]
+rand = "0.7.3"
