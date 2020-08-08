@@ -71,6 +71,7 @@ pub use connection::
     , NSQChannel
     , NSQEvent
     , NSQMessage
+    , NSQSampleRate
     };
 
 pub use producer::
