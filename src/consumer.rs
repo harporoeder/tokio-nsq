@@ -47,10 +47,6 @@ pub enum NSQConsumerConfigSources {
 }
 
 /// Configuration object for an NSQ consumer.
-///
-/// A consumer will automatically restart and maintain connections to multiple NSQD instances.
-/// As connections die, and restart `REQ` will automatically be rebalanced to the active
-/// connections.
 #[derive(Clone)]
 pub struct NSQConsumerConfig {
     topic:              Arc<NSQTopic>,
@@ -119,7 +115,11 @@ struct NSQConnectionMeta {
     found_by:   HashSet<String>,
 }
 
-/// An NSQD consumer corresponding to multiple NSQD instances
+/// An NSQD consumer corresponding to multiple NSQD instances.
+///
+/// A consumer will automatically restart and maintain connections to multiple NSQD instances.
+/// As connections die, and restart `REQ` will automatically be rebalanced to the active
+/// connections.
 pub struct NSQConsumer {
     from_connections_rx: tokio::sync::mpsc::UnboundedReceiver<NSQEvent>,
     clients_ref:         std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
