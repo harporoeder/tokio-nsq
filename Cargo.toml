@@ -7,6 +7,7 @@ license     = "BSD-3-Clause"
 repository  = "https://github.com/harporoeder/tokio-nsq"
 description = "A rust NSQ client built on Tokio. Tokio NSQ aims to be a feature complete NSQ client implementation."
 readme      = "README.md"
+categories  = ["asynchronous", "network-programming", "concurrency"]
 
 [dependencies]
 hyper        = "0.13"
