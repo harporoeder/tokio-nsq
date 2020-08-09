@@ -5,6 +5,8 @@
 
 A Rust [NSQ](https://nsq.io/) client built on [Tokio](https://github.com/tokio-rs/tokio). Tokio NSQ aims to be a feature complete NSQ client implementation.
 
+Tokio NSQ is available as a [cargo package](https://crates.io/crates/tokio-nsq), and API documentation is available on [docs.rs](https://docs.rs/tokio-nsq/latest/tokio_nsq/).
+
 ## Versioning
 
 This project follows strict semantic versioning. While pre `1.0.0` breaking changes have only a minor version bump.
