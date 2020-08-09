@@ -524,7 +524,7 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
                     std::cmp::min(
                         config.base_requeue_delay
                             .checked_mul(attempt as u32)
-                            .unwrap_or(std::time::Duration::new(u64::MAX, u32::MAX)),
+                            .unwrap_or_else(|| std::time::Duration::new(u64::MAX, u32::MAX)),
                         config.max_requeue_delay
                     ).as_millis()
                 },
