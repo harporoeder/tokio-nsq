@@ -17,31 +17,44 @@ fn random_topic() -> Arc<NSQTopic> {
     NSQTopic::new(name).unwrap()
 }
 
+async fn cycle_messages(
+    topic: Arc<NSQTopic>, mut producer: NSQProducer, mut consumer: NSQConsumer
+) {
+    let n: u8 = 10;
+
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
+
+    for x in 0..n {
+        producer.publish(&topic, x.to_string().as_bytes().to_vec()).unwrap();
+    };
+
+    for _ in 0..n {
+        assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
+    }
+
+    for x in 0..n {
+        let message = consumer.consume_filtered().await.unwrap();
+
+        assert_eq!(message.attempt, 1);
+        assert_eq!(message.body, x.to_string().as_bytes().to_vec());
+
+        message.finish();
+    }
+}
+
 #[tokio::test]
 async fn basic_consume_direct() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
-    let mut producer = NSQProducerConfig::new("127.0.0.1:4150").build();
+    let producer = NSQProducerConfig::new("127.0.0.1:4150").build();
 
-    let mut addresses = std::vec::Vec::new();
-    addresses.push("127.0.0.1:4150".to_string());
-
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-    producer.publish(&topic, b"alice1".to_vec()).unwrap();
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
-
-    let mut consumer = NSQConsumerConfig::new(topic, channel)
+    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
         .set_max_in_flight(1)
-        .set_sources(NSQConsumerConfigSources::Daemons(addresses))
+        .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
         .build();
 
-    let message = consumer.consume_filtered().await.unwrap();
-
-    assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"alice1");
-
-    message.finish();
+    cycle_messages(topic, producer, consumer).await;
 }
 
 #[tokio::test]
@@ -49,19 +62,12 @@ async fn basic_consume_lookup() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
-    let mut producer = NSQProducerConfig::new("127.0.0.1:4150").build();
-
-    let mut addresses = std::vec::Vec::new();
-    addresses.push("127.0.0.1:4150".to_string());
-
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-    producer.publish(&topic, b"alice2".to_vec()).unwrap();
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
+    let producer = NSQProducerConfig::new("127.0.0.1:4150").build();
 
     let mut addresses = HashSet::new();
     addresses.insert("http://127.0.0.1:4161".to_string());
 
-    let mut consumer = NSQConsumerConfig::new(topic, channel)
+    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
         .set_max_in_flight(1)
         .set_sources(
             NSQConsumerConfigSources::Lookup(
@@ -72,12 +78,7 @@ async fn basic_consume_lookup() {
         )
         .build();
 
-    let message = consumer.consume_filtered().await.unwrap();
-
-    assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"alice2");
-
-    message.finish();
+    cycle_messages(topic, producer, consumer).await;
 }
 
 #[tokio::test]
@@ -85,7 +86,7 @@ async fn basic_direct_compression() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
-    let mut producer = NSQProducerConfig::new("127.0.0.1:4150")
+    let producer = NSQProducerConfig::new("127.0.0.1:4150")
         .set_shared(
             NSQConfigShared::new().set_compression(
                 NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
@@ -93,16 +94,9 @@ async fn basic_direct_compression() {
         )
         .build();
 
-    let mut addresses = std::vec::Vec::new();
-    addresses.push("127.0.0.1:4150".to_string());
-
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-    producer.publish(&topic, b"alice3".to_vec()).unwrap();
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
-
-    let mut consumer = NSQConsumerConfig::new(topic, channel)
+    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
         .set_max_in_flight(1)
-        .set_sources(NSQConsumerConfigSources::Daemons(addresses))
+        .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
         .set_shared(
             NSQConfigShared::new().set_compression(
                 NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
@@ -110,10 +104,5 @@ async fn basic_direct_compression() {
         )
         .build();
 
-    let message = consumer.consume_filtered().await.unwrap();
-
-    assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"alice3");
-
-    message.finish();
+    cycle_messages(topic, producer, consumer).await;
 }
