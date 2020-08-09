@@ -362,8 +362,7 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
                 continue;
             }
             Frame::Error(_) => {
-                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
-                    "error frame type")));
+                // should be impossible xcept for non fatal errors based on `read_frame_data`
             }
             Frame::Message(message) => {
                 from_connection_tx.send(NSQEvent::Message(NSQMessage{
