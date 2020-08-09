@@ -362,7 +362,7 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
                 continue;
             }
             Frame::Error(_) => {
-                // should be impossible xcept for non fatal errors based on `read_frame_data`
+                // should be impossible except for non fatal errors based on `read_frame_data`
             }
             Frame::Message(message) => {
                 from_connection_tx.send(NSQEvent::Message(NSQMessage{
