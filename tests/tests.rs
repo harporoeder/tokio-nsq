@@ -42,23 +42,40 @@ async fn cycle_messages(
     }
 }
 
-#[tokio::test]
-async fn basic_consume_direct() {
+fn make_default() -> (Arc<NSQTopic>, NSQProducer, NSQConsumer) {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
-    let producer = NSQProducerConfig::new("127.0.0.1:4150").build();
+    let producer = NSQProducerConfig::new("127.0.0.1:4150")
+        .set_shared(
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
+            )
+        )
+        .build();
 
     let consumer = NSQConsumerConfig::new(topic.clone(), channel)
         .set_max_in_flight(1)
         .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
+        .set_shared(
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
+            )
+        )
         .build();
+
+    (topic, producer, consumer)
+}
+
+#[tokio::test]
+async fn direct_connection_basic() {
+    let (topic, producer, consumer) = make_default();
 
     cycle_messages(topic, producer, consumer).await;
 }
 
 #[tokio::test]
-async fn basic_consume_lookup() {
+async fn lookup_consume_basic() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
@@ -82,7 +99,7 @@ async fn basic_consume_lookup() {
 }
 
 #[tokio::test]
-async fn basic_direct_compression() {
+async fn direct_conection_compression() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
