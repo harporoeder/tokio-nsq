@@ -55,7 +55,7 @@ assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 - [x] Subscriptions
 - [x] Publication
 - [x] NSQLookupd based discovery.
-- [ ] Message Backoff
+- [x] Message requeue backoff
 - [X] NSQD TLS negotiation
     - [x] Unverified server certificates
     - [X] Custom certificate authority
