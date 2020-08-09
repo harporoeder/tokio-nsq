@@ -203,21 +203,31 @@ impl NSQMessage {
     /// Sends a message acknowledgement to NSQ.
     pub fn finish(mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
-            let message = MessageToNSQ::FIN(self.id);
-
-            self.context.to_connection_tx_ref.send(message).unwrap();
+            let _ = self.context.to_connection_tx_ref.send(MessageToNSQ::FIN(self.id));
 
             self.consumed = true;
         } else {
             warn!("finish unhealthy");
         }
     }
+
+    /// Requeue a message with the given delay strategy
+    pub fn requeue(mut self, strategy: NSQRequeueDelay) {
+        if self.context.healthy.load(Ordering::SeqCst) {
+            let _ = self.context.to_connection_tx_ref.send(
+                MessageToNSQ::REQ(self.id, self.attempt, strategy)
+            );
+
+            self.consumed = true;
+        } else {
+            warn!("requeue unhealthy");
+        }
+    }
+
     /// Tells NSQ daemon to reset the timeout for this message.
     pub fn touch(&mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
-            let message = MessageToNSQ::TOUCH(self.id);
-
-            self.context.to_connection_tx_ref.send(message).unwrap();
+            let _ = self.context.to_connection_tx_ref.send(MessageToNSQ::TOUCH(self.id));
         } else {
             warn!("touch unhealthy");
         }
@@ -228,9 +238,9 @@ impl Drop for NSQMessage {
     fn drop(&mut self) {
         if !self.consumed {
             if self.context.healthy.load(Ordering::SeqCst) {
-                self.context.to_connection_tx_ref.send(
+                let _ = self.context.to_connection_tx_ref.send(
                     MessageToNSQ::REQ(self.id, self.attempt, NSQRequeueDelay::DefaultDelay)
-                ).unwrap();
+                );
             } else {
                 error!("NSQMessage::drop failed");
             }
