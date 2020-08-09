@@ -99,7 +99,7 @@ async fn lookup_consume_basic() {
 }
 
 #[tokio::test]
-async fn direct_connection_compression() {
+async fn direct_connection_deflate() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
@@ -157,4 +157,65 @@ async fn direct_connection_mpub() {
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, b"hello2".to_vec());
     message.finish();
+}
+
+#[tokio::test]
+async fn direct_connection_encryption() {
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
+
+    let producer = NSQProducerConfig::new("127.0.0.1:4150")
+        .set_shared(
+            NSQConfigShared::new().set_tls(
+                NSQConfigSharedTLS::new("test.com")
+            )
+        )
+        .build();
+
+    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
+        .set_max_in_flight(1)
+        .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
+        .set_shared(
+            NSQConfigShared::new()
+                .set_tls(
+                    NSQConfigSharedTLS::new("test.com")
+                )
+        )
+        .build();
+
+    cycle_messages(topic, producer, consumer).await;
+}
+
+#[tokio::test]
+async fn direct_connection_encryption_and_deflate() {
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
+
+    let producer = NSQProducerConfig::new("127.0.0.1:4150")
+        .set_shared(
+            NSQConfigShared::new()
+                .set_tls(
+                    NSQConfigSharedTLS::new("test.com")
+                )
+                .set_compression(
+                    NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
+                )
+        )
+        .build();
+
+    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
+        .set_max_in_flight(1)
+        .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
+        .set_shared(
+            NSQConfigShared::new()
+                .set_tls(
+                    NSQConfigSharedTLS::new("test.com")
+                )
+                .set_compression(
+                    NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
+                )
+        )
+        .build();
+
+    cycle_messages(topic, producer, consumer).await;
 }
