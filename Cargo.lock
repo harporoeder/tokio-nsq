@@ -904,7 +904,7 @@ dependencies = [
 
 [[package]]
 name = "tokio-nsq"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "backoff",
  "built",

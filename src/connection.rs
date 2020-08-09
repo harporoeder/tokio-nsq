@@ -151,6 +151,7 @@ struct IdentifyResponse {
     output_buffer_timeout: u32,
 }
 
+/// Control what delay strategy the client will use for calculating requeue timeout
 #[derive(Debug)]
 pub enum NSQRequeueDelay {
     /// Requeue the message with no delay.
