@@ -99,7 +99,7 @@ async fn lookup_consume_basic() {
 }
 
 #[tokio::test]
-async fn direct_conection_compression() {
+async fn direct_connection_compression() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
