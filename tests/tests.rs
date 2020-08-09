@@ -123,3 +123,38 @@ async fn direct_conection_compression() {
 
     cycle_messages(topic, producer, consumer).await;
 }
+
+#[tokio::test]
+async fn direct_connection_dpub() {
+    let (topic, mut producer, mut consumer) = make_default();
+
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
+    producer.publish_deferred(&topic, b"hello".to_vec(), 1).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
+
+    let message = consumer.consume_filtered().await.unwrap();
+
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, b"hello".to_vec());
+
+    message.finish();
+}
+
+#[tokio::test]
+async fn direct_connection_mpub() {
+    let (topic, mut producer, mut consumer) = make_default();
+
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
+    producer.publish_multiple(&topic, vec![b"hello1".to_vec(), b"hello2".to_vec()]).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
+
+    let message = consumer.consume_filtered().await.unwrap();
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, b"hello1".to_vec());
+    message.finish();
+
+    let message = consumer.consume_filtered().await.unwrap();
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, b"hello2".to_vec());
+    message.finish();
+}
