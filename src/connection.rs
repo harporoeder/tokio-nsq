@@ -362,7 +362,8 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
                 continue;
             }
             Frame::Error(_) => {
-                continue;
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                    "error frame type")));
             }
             Frame::Message(message) => {
                 from_connection_tx.send(NSQEvent::Message(NSQMessage{
@@ -379,7 +380,8 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
                 continue;
             }
             Frame::Unknown => {
-                continue;
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                    "unknown frame type")));
             }
         }
     }
@@ -566,25 +568,26 @@ async fn run_generic<W: AsyncWrite + std::marker::Unpin, R: AsyncRead + std::mar
     mut stream_tx: W,
 ) -> Result<(), Error>
 {
-    match &state.config.subscribe {
-        Some((channel, topic)) => {
-            handle_single_command(
-                &state.config,&state.shared,
-                MessageToNSQ::SUB(channel.clone(),
-                topic.clone()),
-                &mut stream_tx
-            ).await?;
+    if let Some((channel, topic)) = &state.config.subscribe {
+        handle_single_command(
+            &state.config,&state.shared,
+            MessageToNSQ::SUB(channel.clone(),
+            topic.clone()),
+            &mut stream_tx
+        ).await?;
 
-            match read_frame_data(&mut stream_rx).await? {
-                Frame::Response(_) => {
-
-                },
-                _ => {
-                    return Ok(());
+        match read_frame_data(&mut stream_rx).await? {
+            Frame::Response(body) => {
+                if body != b"OK" {
+                    return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                        "subscribe negotiation expected response OK")));
                 }
+            },
+            _ => {
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                    "subscribe negotiation expected standard response")));
             }
         }
-        None => {}
     }
 
     state.shared.healthy.store(true, Ordering::SeqCst);
