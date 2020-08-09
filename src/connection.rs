@@ -942,10 +942,11 @@ impl NSQDConnection {
         self.queue_message(MessageToNSQ::PUB(topic, value))
     }
 
-    pub fn publish_deferred(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>, delay_seconds: u32)
-        -> Result<(), Error>
+    pub fn publish_deferred(
+        &mut self, topic: Arc<NSQTopic>, value: Vec<u8>, delay_milliseconds: u32
+    ) -> Result<(), Error>
     {
-        self.queue_message(MessageToNSQ::DPUB(topic, value, delay_seconds))
+        self.queue_message(MessageToNSQ::DPUB(topic, value, delay_milliseconds))
     }
 
     pub fn publish_multiple(&mut self, topic: Arc<NSQTopic>, value: Vec<Vec<u8>>)

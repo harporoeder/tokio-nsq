@@ -67,10 +67,11 @@ impl NSQProducer {
     }
 
     /// Queue a DPUB message to be asynchronously sent
-    pub fn publish_deferred(&mut self, topic: &Arc<NSQTopic>, value: Vec<u8>, delay_seconds: u32)
-        -> Result<(), Error>
+    pub fn publish_deferred(
+        &mut self, topic: &Arc<NSQTopic>, value: Vec<u8>, delay_milliseconds: u32
+    ) -> Result<(), Error>
     {
-        self.connection.publish_deferred(topic.clone(), value, delay_seconds)
+        self.connection.publish_deferred(topic.clone(), value, delay_milliseconds)
     }
 
     /// Queue an MPUB message to be asynchronously sent
