@@ -152,6 +152,16 @@ struct IdentifyResponse {
 }
 
 #[derive(Debug)]
+pub enum NSQRequeueDelay {
+    /// Requeue the message with no delay.
+    NoDelay,
+    /// Use the default delay strategy based on number of attempts.
+    DefaultDelay,
+    /// Delay for a specific duration, millisecond precision.
+    CustomDelay(std::time::Duration)
+}
+
+#[derive(Debug)]
 pub enum MessageToNSQ {
     NOP,
     PUB(Arc<NSQTopic>, Vec<u8>),
@@ -160,7 +170,7 @@ pub enum MessageToNSQ {
     SUB(Arc<NSQTopic>, Arc<NSQChannel>),
     RDY(u16),
     FIN([u8; 16]),
-    REQ([u8; 16], u16),
+    REQ([u8; 16], u16, NSQRequeueDelay),
     TOUCH([u8; 16]),
 }
 
@@ -218,9 +228,9 @@ impl Drop for NSQMessage {
     fn drop(&mut self) {
         if !self.consumed {
             if self.context.healthy.load(Ordering::SeqCst) {
-                let message = MessageToNSQ::REQ(self.id, self.attempt);
-
-                self.context.to_connection_tx_ref.send(message).unwrap();
+                self.context.to_connection_tx_ref.send(
+                    MessageToNSQ::REQ(self.id, self.attempt, NSQRequeueDelay::DefaultDelay)
+                ).unwrap();
             } else {
                 error!("NSQMessage::drop failed");
             }
@@ -493,13 +503,23 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;
         },
-        MessageToNSQ::REQ(id, attempt) => {
-            let count: u128 = std::cmp::min(
-                config.base_requeue_delay
-                    .checked_mul(attempt as u32)
-                    .unwrap_or(std::time::Duration::new(u64::MAX, u32::MAX)),
-                config.max_requeue_delay
-            ).as_millis();
+        MessageToNSQ::REQ(id, attempt, method) => {
+            let count: u128 = match method {
+                NSQRequeueDelay::NoDelay               => {
+                    0
+                },
+                NSQRequeueDelay::DefaultDelay          => {
+                    std::cmp::min(
+                        config.base_requeue_delay
+                            .checked_mul(attempt as u32)
+                            .unwrap_or(std::time::Duration::new(u64::MAX, u32::MAX)),
+                        config.max_requeue_delay
+                    ).as_millis()
+                },
+                NSQRequeueDelay::CustomDelay(duration) => {
+                    duration.as_millis()
+                }
+            };
 
             stream.write_all(b"REQ ").await?;
             stream.write_all(&id).await?;

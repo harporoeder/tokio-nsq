@@ -73,6 +73,7 @@ pub use connection::
     , NSQEvent
     , NSQMessage
     , NSQSampleRate
+    , NSQRequeueDelay
     };
 
 pub use producer::
