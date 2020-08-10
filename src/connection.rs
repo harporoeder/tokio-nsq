@@ -12,6 +12,7 @@ use crate::backoff::backoff::Backoff;
 use std::time::{Instant};
 
 use compression::*;
+use snappy::*;
 
 lazy_static! {
     static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
@@ -131,6 +132,7 @@ struct IdentifyBody {
     feature_negotiation: bool,
     tls_v1:              bool,
     deflate:             bool,
+    snappy:              bool,
     sample_rate:         Option<u8>,
 }
 
@@ -635,8 +637,13 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         user_agent:          "rustnsq/".to_string() + &built_info::PKG_VERSION.to_string(),
         feature_negotiation: true,
         tls_v1:              state.config.shared.tls.is_some(),
-        deflate:             state.config.shared.compression.is_some(),
         sample_rate:         state.config.sample_rate.map(|rate| rate.get()),
+        deflate:             matches!(
+            state.config.shared.compression, Some(NSQConfigSharedCompression::Deflate(_))
+        ),
+        snappy:              matches!(
+            state.config.shared.compression, Some(NSQConfigSharedCompression::Snappy)
+        ),
     };
 
     let serialized = serde_json::to_string(&identify_body)?;
@@ -722,6 +729,31 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     {
         let mut stream_rx = NSQInflate::new(stream_rx);
         let stream_tx     = NSQDeflate::new(stream_tx, level.get());
+
+        match read_frame_data(&mut stream_rx).await? {
+            Frame::Response(body) => {
+                if body != b"OK" {
+                    return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                        "compression negotiation expected OK")));
+                }
+            }
+            _ => {
+                return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
+                     "compression negotiation failed")));
+            }
+        }
+
+        (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
+    } else {
+        (stream_rx, stream_tx)
+    };
+    
+    let (mut stream_rx, mut stream_tx) = if
+        let Some(NSQConfigSharedCompression::Snappy) = &state.config.shared.compression
+    {
+        let mut stream_rx = NSQSnappyInflate::new(stream_rx);
+        
+        println!("waiting on OK");
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(body) => {

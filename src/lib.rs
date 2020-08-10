@@ -47,6 +47,8 @@ extern crate lazy_static;
 extern crate backoff;
 extern crate miniz_oxide;
 extern crate gethostname;
+#[macro_use]
+extern crate matches;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -66,6 +68,7 @@ mod producer;
 mod consumer;
 mod compression;
 mod connection_config;
+mod snappy;
 
 pub use connection::
     { NSQTopic

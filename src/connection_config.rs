@@ -55,7 +55,8 @@ impl NSQConfigSharedTLS {
 /// NSQD TCP compression options
 #[derive(Debug, Clone)]
 pub enum NSQConfigSharedCompression {
-    Deflate(NSQDeflateLevel)
+    Deflate(NSQDeflateLevel),
+    Snappy
 }
 
 /// Configuration options shared by both produces and consumers

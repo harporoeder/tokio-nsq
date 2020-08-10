@@ -219,3 +219,33 @@ async fn direct_connection_encryption_and_deflate() {
 
     cycle_messages(topic, producer, consumer).await;
 }
+
+#[tokio::test]
+async fn direct_connection_snappy() {
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
+
+    let mut producer = NSQProducerConfig::new("127.0.0.1:4150")
+        .set_shared(
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Snappy
+            )
+        )
+        .build();
+        
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
+
+    /*
+    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
+        .set_max_in_flight(1)
+        .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
+        .set_shared(
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Snappy
+            )
+        )
+        .build();
+    */
+
+    // cycle_messages(topic, producer, consumer).await;
+}
