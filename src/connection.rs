@@ -752,6 +752,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         let Some(NSQConfigSharedCompression::Snappy) = &state.config.shared.compression
     {
         let mut stream_rx = NSQSnappyInflate::new(stream_rx);
+        let stream_tx     = NSQSnappyDeflate::new(stream_tx);
         
         println!("waiting on OK");
 

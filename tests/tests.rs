@@ -20,7 +20,7 @@ fn random_topic() -> Arc<NSQTopic> {
 async fn cycle_messages(
     topic: Arc<NSQTopic>, mut producer: NSQProducer, mut consumer: NSQConsumer
 ) {
-    let n: u8 = 10;
+    let n: u8 = 2;
 
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
 
@@ -234,9 +234,10 @@ async fn direct_connection_snappy() {
         .build();
         
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
+    producer.publish_multiple(&topic, vec![b"hello world!".to_vec(), b"ab".to_vec(),  b"abc".to_vec()]).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
-    /*
-    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
+    let mut consumer = NSQConsumerConfig::new(topic.clone(), channel)
         .set_max_in_flight(1)
         .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
         .set_shared(
@@ -245,7 +246,22 @@ async fn direct_connection_snappy() {
             )
         )
         .build();
-    */
+
+    let message1 = consumer.consume_filtered().await.unwrap();
+    // assert_eq!(message.attempt, 1);
+    // assert_eq!(message.body, b"abc".to_vec());
+    // message.finish();
+
+    let message2 = consumer.consume_filtered().await.unwrap();
+    // assert_eq!(message.attempt, 1);
+    // assert_eq!(message.body, b"123".to_vec());
+    // message.finish();
+    
+    // let message3 = consumer.consume_filtered().await.unwrap();
+    
+    println!("{:?}", message1.body);
+    println!("{:?}", message2.body);
+    // println!("{:?}", message3.body);
 
     // cycle_messages(topic, producer, consumer).await;
 }
