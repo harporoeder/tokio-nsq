@@ -6,11 +6,11 @@ use core::task::Poll;
 use std::pin::Pin;
 use crate::tokio::io::AsyncRead;
 use crate::tokio::io::AsyncWrite;
+use crate::tokio::io::AsyncReadExt;
 use tokio::io::Result;
+use std::io::Cursor;
 
 // start section copied from https://github.com/BurntSushi/rust-snappy
-
-const STREAM_IDENTIFIER: &'static [u8] = b"\xFF\x06\x00\x00sNaPpY";
 
 pub fn read_u24_le(slice: &[u8]) -> u32 {
     slice[0] as u32 | (slice[1] as u32) << 8 | (slice[2] as u32) << 16
@@ -20,25 +20,32 @@ pub fn read_u24_le(slice: &[u8]) -> u32 {
 
 pub struct NSQSnappyInflate<S> {
     inner:         S,
-    initial:       bool,
     input_buffer:  Vec<u8>,
     output_buffer: Vec<u8>,
     input_end:     usize,
-    input_start:   usize,
     output_start:  usize,
+    output_end:    usize,
+    decoder:       snap::read::FrameDecoder<std::io::Cursor<Vec<u8>>>,
 }
 
 impl<S> NSQSnappyInflate<S> {
     pub fn new(inner: S) -> Self {
+        let output_buffer: Vec<u8> = Vec::new();
+        let cursor = std::io::Cursor::new(output_buffer);
+
         NSQSnappyInflate {
-            initial:       true,
             input_buffer:  vec![0; 1024],
-            output_buffer: Vec::new(),
+            output_buffer: vec![0; 1024],
+            decoder:       snap::read::FrameDecoder::new(cursor),
             input_end:     0,
-            input_start:   0,
             output_start:  0,
+            output_end:    0,
             inner,
         }
+    }
+
+    pub fn get_mut(&mut self) -> &mut S {
+        &mut self.inner
     }
 }
 
@@ -53,15 +60,15 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
     {
         let this = &mut *self;
         
-        println!("poll_read");
+        println!("poll_read {}", buf.len());
         
         loop {
             println!("main_loop");
             
-            while this.output_start != this.output_buffer.len() {
-                println!("output_loop start");
+            while this.output_start != this.output_end {
+                // println!("output_loop start");
                 
-                let count = std::cmp::min(buf.len(), this.output_buffer.len() - this.output_start);
+                let count = std::cmp::min(buf.len(), this.output_end - this.output_start);
 
                 buf.clone_from_slice(
                     &this.output_buffer[this.output_start..this.output_start + count]
@@ -69,23 +76,23 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
 
                 this.output_start += count;
 
-                println!("output_loop end {}", count);
+                println!("output_loop end {} {}", count, this.output_end - this.output_start);
 
                 return Poll::Ready(Ok(count));
             }
             
             this.output_start = 0;
-            this.output_buffer.resize(0, 0);
+            this.output_end   = 0;
 
-            println!("read_loop");
+            // println!("read_loop");
 
             if this.input_end < 4 {
-                println!("not enough data for kind and size");
+                // println!("not enough data for kind and size");
                 
-                println!("async_read");
+                // println!("async_read");
 
                 match AsyncRead::poll_read(
-                    Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..]
+                    Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..4]
                 ) {
                     Poll::Ready(Ok(0)) => {
                         println!("ok 0");
@@ -105,20 +112,22 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                     },
                 }
                 
-                println!("input_end {}", this.input_end);
+                // println!("input_end {}", this.input_end);
                 
                 continue;
             }
             
             let len: usize = read_u24_le(&this.input_buffer[1..]) as usize;
             
+            println!("len is {} {}", len, this.input_buffer[0]);
+            
             if this.input_end < len + 4 {
-                println!("not enough data for frame body");
+                // println!("not enough data for frame body");
 
-                println!("async_read");
+                // println!("async_read");
 
                 match AsyncRead::poll_read(
-                    Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..]
+                    Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..len + 4]
                 ) {
                     Poll::Ready(Ok(0)) => {
                         println!("ok 1");
@@ -136,68 +145,51 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                     },
                 }
                 
-                println!("input_end {}", this.input_end);
+                // println!("input_end {}", this.input_end);
                 
                 continue;
             }
             
-            println!("len is {}", len);
+            println!("buf is {:?}", this.input_buffer);
             
-            println!("process_loop");
+            // println!("writing to cursor");
             
-            match this.input_buffer[0] {
-                0xFF => {
-                    println!("frame kind header");
-                    
-                    let identifier: Vec<u8> = vec![
-                        0x73, 0x4e, 0x61, 0x50, 0x70, 0x59
-                    ];
-                    
-                    if &this.input_buffer[4..10] != identifier.as_slice() {
-                        println!("does not match");
-                        
-                        return Poll::Pending;
-                    }
-                    
-                    println!("does match");
-                },
-                0x00 => {
-                    println!("frame kind compressed");
-                },
-                0x01 => {
-                    println!("frame kind uncompressed {}", len);
-                    
-                    println!("x1 = {:?}", this.input_buffer[4..len + 4].to_vec());
-                    
-                    if len < 4 {
-                        println!("frame kind uncompressed size violation");
-                    }
-                    
-                    let x = this.input_buffer[8..len + 4].to_vec();
-                    println!("x2 = {:?}", x);
-                    
-                    // let y = std::str::from_utf8(&x).unwrap();
-                    // println!("y = {}", y);
-                    
-                    this.output_buffer = x;
-                },
-                0xFE => {
-                    println!("frame kind padding");
-                },
-                _ => {
-                    println!("frame kind unknown");
+            this.decoder.get_mut().set_position(0);
+            
+            println!("input_end is {}", this.input_end);
+            
+            let written = std::io::Write::write(
+                &mut this.decoder.get_mut(),
+                &this.input_buffer[..len + 4]
+            )?;
+            
+            println!("input_end wrote {}", written);
+            
+            this.decoder.get_mut().set_position(0);
+            // this.decoder.get_mut().get_mut().resize(this.input_end, 0);
+            
+            this.input_end    = 0;
+            this.output_start = 0;
+            this.output_end   = 0;
+            
+            // println!("decompressing cursor");
+            
+            loop {
+                let decoded = std::io::Read::read(
+                    &mut this.decoder,
+                    &mut this.output_buffer[this.output_end..],
+                )?;
+                
+                if decoded == 0 {
+                    break;
                 }
+                
+                println!("loop count --------- {}", decoded);
+                
+                this.output_end += decoded;
             }
             
-            println!("start {:?}", this.input_buffer[0..this.input_end].to_vec());
-            
-            this.input_buffer = this.input_buffer[4 + len..this.input_end].to_vec();
-            this.input_buffer.resize(1024, 0);
-            this.input_end -= 4 + len;
-            
-            println!("end {:?}", this.input_buffer[0..this.input_end].to_vec());
-            
-            println!("input_end post {}", this.input_end);
+            println!("output_end is {}", this.output_end);
         }
     }
 }
@@ -284,7 +276,9 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
             this.output_start = 0;
             this.output_end   = 0;
             
-            std::io::Write::write(&mut this.encoder, buf)?;
+            let wrote = std::io::Write::write(&mut this.encoder, buf)?;
+
+            println!("snappy_write post write count {}", wrote);
 
             if this.encoder.get_ref().position() == 0 {
                 std::io::Write::flush(&mut this.encoder)?;
@@ -311,4 +305,69 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
     {
         AsyncWrite::poll_shutdown(Pin::new(&mut self.inner), cx)
     }
+}
+
+struct AsyncMock {
+    buffer:   Vec<u8>,
+    position: usize,
+}
+
+impl AsyncRead for AsyncMock {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx:       &mut Context,
+        buf:      &mut [u8]
+    ) -> Poll<Result<usize>>
+    {
+        println!("async mock read {}", buf.len());
+
+        if self.buffer.len() == self.position {
+            return Poll::Ready(Ok(0));
+        }
+
+        let count = std::cmp::min(buf.len(), self.buffer.len() - self.position);
+        
+        buf.clone_from_slice(
+            &self.buffer[self.position..self.position + count]
+        );
+        
+        self.position += count;
+
+        Poll::Ready(Ok(count))
+    }
+}
+
+#[tokio::test]
+async fn test_snappy_async_decompress() {
+    let mut snappy_rx = NSQSnappyInflate::new(
+        AsyncMock{
+            buffer:   Vec::new(),
+            position: 0
+        }
+    );
+
+    let cursor: Cursor<Vec<u8>> = std::io::Cursor::new(vec![0; 1024]);
+    let mut snappy_tx = snap::write::FrameEncoder::new(cursor);
+    
+    std::io::Write::write(&mut snappy_tx, b"12345").unwrap();
+    std::io::Write::flush(&mut snappy_tx).unwrap();
+    
+    let end = snappy_tx.get_ref().position() as usize;
+    snappy_rx.get_mut().buffer = snappy_tx.get_ref().get_ref()[0..end].to_vec();
+    let mut actual = [0; 5];
+    snappy_rx.read_exact(&mut actual).await.unwrap();
+    assert_eq!(&actual, b"12345");
+    
+    snappy_tx.get_mut().set_position(0);
+    snappy_rx.get_mut().buffer = Vec::new();
+    snappy_rx.get_mut().position = 0;
+    
+    std::io::Write::write(&mut snappy_tx, b"hello").unwrap();
+    std::io::Write::flush(&mut snappy_tx).unwrap();
+    
+    let end = snappy_tx.get_ref().position() as usize;
+    snappy_rx.get_mut().buffer = snappy_tx.get_ref().get_ref()[0..end].to_vec();
+    let mut actual = [0; 5];
+    snappy_rx.read_exact(&mut actual).await.unwrap();
+    assert_eq!(&actual, b"hello");
 }
