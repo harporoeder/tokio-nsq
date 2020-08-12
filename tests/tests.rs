@@ -107,6 +107,32 @@ async fn direct_connection_basic() {
 }
 
 #[tokio::test]
+async fn direct_connection_inflight_10() {
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
+
+    let producer = NSQProducerConfig::new("127.0.0.1:4150")
+        .set_shared(
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
+            )
+        )
+        .build();
+
+    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
+        .set_max_in_flight(10)
+        .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
+        .set_shared(
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
+            )
+        )
+        .build();
+
+    run_message_tests(topic, producer, consumer).await;
+}
+
+#[tokio::test]
 async fn lookup_consume_basic() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
