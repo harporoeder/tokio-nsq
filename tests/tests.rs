@@ -18,9 +18,9 @@ fn random_topic() -> Arc<NSQTopic> {
 }
 
 async fn cycle_messages(
-    topic: Arc<NSQTopic>, mut producer: NSQProducer, mut consumer: NSQConsumer
+    topic: Arc<NSQTopic>, producer: &mut NSQProducer, consumer: &mut NSQConsumer
 ) {
-    let n: u8 = 2;
+    let n: u8 = 10;
 
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
 
@@ -40,6 +40,38 @@ async fn cycle_messages(
 
         message.finish();
     }
+}
+
+async fn run_message_tests(
+    topic: Arc<NSQTopic>, mut producer: NSQProducer, mut consumer: NSQConsumer
+) {
+    // Several basic PUB
+    cycle_messages(topic.clone(), &mut producer, &mut consumer).await;
+    
+    // MPUB
+    producer.publish_multiple(&topic, vec![b"hello1".to_vec(), b"hello2".to_vec()]).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
+
+    let message = consumer.consume_filtered().await.unwrap();
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, b"hello1".to_vec());
+    message.finish();
+
+    let message = consumer.consume_filtered().await.unwrap();
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, b"hello2".to_vec());
+    message.finish();
+    
+    // DPUB
+    producer.publish_deferred(&topic, b"hello".to_vec(), 1).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
+
+    let message = consumer.consume_filtered().await.unwrap();
+
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, b"hello".to_vec());
+
+    message.finish();
 }
 
 fn make_default() -> (Arc<NSQTopic>, NSQProducer, NSQConsumer) {
@@ -71,7 +103,7 @@ fn make_default() -> (Arc<NSQTopic>, NSQProducer, NSQConsumer) {
 async fn direct_connection_basic() {
     let (topic, producer, consumer) = make_default();
 
-    cycle_messages(topic, producer, consumer).await;
+    run_message_tests(topic, producer, consumer).await;
 }
 
 #[tokio::test]
@@ -95,7 +127,7 @@ async fn lookup_consume_basic() {
         )
         .build();
 
-    cycle_messages(topic, producer, consumer).await;
+    run_message_tests(topic, producer, consumer).await;
 }
 
 #[tokio::test]
@@ -121,42 +153,7 @@ async fn direct_connection_deflate() {
         )
         .build();
 
-    cycle_messages(topic, producer, consumer).await;
-}
-
-#[tokio::test]
-async fn direct_connection_dpub() {
-    let (topic, mut producer, mut consumer) = make_default();
-
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-    producer.publish_deferred(&topic, b"hello".to_vec(), 1).unwrap();
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
-
-    let message = consumer.consume_filtered().await.unwrap();
-
-    assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"hello".to_vec());
-
-    message.finish();
-}
-
-#[tokio::test]
-async fn direct_connection_mpub() {
-    let (topic, mut producer, mut consumer) = make_default();
-
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-    producer.publish_multiple(&topic, vec![b"hello1".to_vec(), b"hello2".to_vec()]).unwrap();
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
-
-    let message = consumer.consume_filtered().await.unwrap();
-    assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"hello1".to_vec());
-    message.finish();
-
-    let message = consumer.consume_filtered().await.unwrap();
-    assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"hello2".to_vec());
-    message.finish();
+    run_message_tests(topic, producer, consumer).await;
 }
 
 #[tokio::test]
@@ -183,7 +180,7 @@ async fn direct_connection_encryption() {
         )
         .build();
 
-    cycle_messages(topic, producer, consumer).await;
+    run_message_tests(topic, producer, consumer).await;
 }
 
 #[tokio::test]
@@ -217,7 +214,7 @@ async fn direct_connection_encryption_and_deflate() {
         )
         .build();
 
-    cycle_messages(topic, producer, consumer).await;
+    run_message_tests(topic, producer, consumer).await;
 }
 
 #[tokio::test]
@@ -243,7 +240,7 @@ async fn direct_connection_snappy() {
         )
         .build();
 
-    cycle_messages(topic, producer, consumer).await;
+    run_message_tests(topic, producer, consumer).await;
 }
 
 #[tokio::test]
@@ -277,5 +274,5 @@ async fn direct_connection_encryption_and_snappy() {
         )
         .build();
 
-    cycle_messages(topic, producer, consumer).await;
+    run_message_tests(topic, producer, consumer).await;
 }
