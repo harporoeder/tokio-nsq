@@ -63,6 +63,6 @@ assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
     - [X] Custom certificate authority
     - [X] Client certificates
 - [x] Deflate NSQD compression
-- [ ] Snappy NSQD compression
+- [X] Snappy NSQD compression
 - [X] Sampling
 - [X] Auth
