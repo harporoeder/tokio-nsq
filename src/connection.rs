@@ -724,7 +724,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         (read_to_dyn(stream_rx), write_to_dyn(stream_tx))
     };
 
-    let (mut stream_rx, mut stream_tx) = if
+    let (stream_rx, stream_tx) = if
         let Some(NSQConfigSharedCompression::Deflate(level)) = &state.config.shared.compression
     {
         let mut stream_rx = NSQInflate::new(stream_rx);

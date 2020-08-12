@@ -1,14 +1,11 @@
 extern crate snap;
 
-use log::*;
 use core::task::Context;
 use core::task::Poll;
 use std::pin::Pin;
 use crate::tokio::io::AsyncRead;
 use crate::tokio::io::AsyncWrite;
-use crate::tokio::io::AsyncReadExt;
 use tokio::io::Result;
-use std::io::Cursor;
 
 // start section copied from https://github.com/BurntSushi/rust-snappy
 
@@ -64,7 +61,7 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
         let this = &mut *self;
         
         loop {
-            while this.output_start != this.output_end {
+            if this.output_start != this.output_end {
                 let count = std::cmp::min(buf.len(), this.output_end - this.output_start);
 
                 buf.clone_from_slice(
@@ -125,7 +122,7 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
 
             this.decoder.get_mut().set_position(0);
             
-            let written = std::io::Write::write(
+            std::io::Write::write(
                 &mut this.decoder.get_mut(),
                 &this.input_buffer[..len + 4]
             )?;
@@ -220,12 +217,12 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
                 }
             }
             
-            &this.encoder.get_mut().set_position(0);
+            this.encoder.get_mut().set_position(0);
             
             this.output_start = 0;
             this.output_end   = 0;
             
-            let wrote = std::io::Write::write(&mut this.encoder, buf)?;
+            std::io::Write::write(&mut this.encoder, buf)?;
 
             if this.encoder.get_ref().position() == 0 {
                 std::io::Write::flush(&mut this.encoder)?;
