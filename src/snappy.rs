@@ -17,6 +17,7 @@ pub fn read_u24_le(slice: &[u8]) -> u32 {
 }
 
 const MAX_COMPRESS_BLOCK_SIZE: usize = 76490;
+const MAX_BLOCK_SIZE: usize          = 1 << 16;
 
 // end section
 
@@ -37,7 +38,7 @@ impl<S> NSQSnappyInflate<S> {
 
         NSQSnappyInflate {
             input_buffer:  vec![0; MAX_COMPRESS_BLOCK_SIZE],
-            output_buffer: vec![0; 1024],
+            output_buffer: vec![0; MAX_BLOCK_SIZE],
             decoder:       snap::read::FrameDecoder::new(cursor),
             input_end:     0,
             output_start:  0,
@@ -121,10 +122,8 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                 
                 continue;
             }
-            
 
             this.decoder.get_mut().set_position(0);
-            
             
             let written = std::io::Write::write(
                 &mut this.decoder.get_mut(),
@@ -251,69 +250,4 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
     {
         AsyncWrite::poll_shutdown(Pin::new(&mut self.inner), cx)
     }
-}
-
-struct AsyncMock {
-    buffer:   Vec<u8>,
-    position: usize,
-}
-
-impl AsyncRead for AsyncMock {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx:       &mut Context,
-        buf:      &mut [u8]
-    ) -> Poll<Result<usize>>
-    {
-        println!("async mock read {}", buf.len());
-
-        if self.buffer.len() == self.position {
-            return Poll::Ready(Ok(0));
-        }
-
-        let count = std::cmp::min(buf.len(), self.buffer.len() - self.position);
-        
-        buf.clone_from_slice(
-            &self.buffer[self.position..self.position + count]
-        );
-        
-        self.position += count;
-
-        Poll::Ready(Ok(count))
-    }
-}
-
-#[tokio::test]
-async fn test_snappy_async_decompress() {
-    let mut snappy_rx = NSQSnappyInflate::new(
-        AsyncMock{
-            buffer:   Vec::new(),
-            position: 0
-        }
-    );
-
-    let cursor: Cursor<Vec<u8>> = std::io::Cursor::new(vec![0; 1024]);
-    let mut snappy_tx = snap::write::FrameEncoder::new(cursor);
-    
-    std::io::Write::write(&mut snappy_tx, b"12345").unwrap();
-    std::io::Write::flush(&mut snappy_tx).unwrap();
-    
-    let end = snappy_tx.get_ref().position() as usize;
-    snappy_rx.get_mut().buffer = snappy_tx.get_ref().get_ref()[0..end].to_vec();
-    let mut actual = [0; 5];
-    snappy_rx.read_exact(&mut actual).await.unwrap();
-    assert_eq!(&actual, b"12345");
-    
-    snappy_tx.get_mut().set_position(0);
-    snappy_rx.get_mut().buffer = Vec::new();
-    snappy_rx.get_mut().position = 0;
-    
-    std::io::Write::write(&mut snappy_tx, b"hello").unwrap();
-    std::io::Write::flush(&mut snappy_tx).unwrap();
-    
-    let end = snappy_tx.get_ref().position() as usize;
-    snappy_rx.get_mut().buffer = snappy_tx.get_ref().get_ref()[0..end].to_vec();
-    let mut actual = [0; 5];
-    snappy_rx.read_exact(&mut actual).await.unwrap();
-    assert_eq!(&actual, b"hello");
 }
