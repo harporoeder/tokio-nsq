@@ -60,11 +60,7 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
     {
         let this = &mut *self;
         
-        println!("poll_read {}", buf.len());
-        
         loop {
-            println!("main_loop");
-            
             while this.output_start != this.output_end {
                 // println!("output_loop start");
                 
@@ -75,8 +71,6 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                 );
 
                 this.output_start += count;
-
-                println!("output_loop end {} {}", count, this.output_end - this.output_start);
 
                 return Poll::Ready(Ok(count));
             }
@@ -95,8 +89,6 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                     Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..4]
                 ) {
                     Poll::Ready(Ok(0)) => {
-                        println!("ok 0");
-
                         return Poll::Ready(Ok(0));
                     }
                     Poll::Ready(Ok(n)) => {
@@ -106,31 +98,20 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                         return Poll::Ready(Err(err));
                     },
                     Poll::Pending => {
-                        println!("pending 0");
-
                         return Poll::Pending;
                     },
                 }
-                
-                // println!("input_end {}", this.input_end);
                 
                 continue;
             }
             
             let len: usize = read_u24_le(&this.input_buffer[1..]) as usize;
             
-            println!("len is {} {}", len, this.input_buffer[0]);
-            
             if this.input_end < len + 4 {
-                // println!("not enough data for frame body");
-
-                // println!("async_read");
-
                 match AsyncRead::poll_read(
                     Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..len + 4]
                 ) {
                     Poll::Ready(Ok(0)) => {
-                        println!("ok 1");
                         return Poll::Ready(Ok(0));
                     }
                     Poll::Ready(Ok(n)) => {
@@ -140,39 +121,27 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                         return Poll::Ready(Err(err));
                     },
                     Poll::Pending => {
-                        println!("pending 1");
                         return Poll::Pending;
                     },
                 }
                 
-                // println!("input_end {}", this.input_end);
-                
                 continue;
             }
             
-            println!("buf is {:?}", this.input_buffer);
-            
-            // println!("writing to cursor");
-            
+
             this.decoder.get_mut().set_position(0);
             
-            println!("input_end is {}", this.input_end);
             
             let written = std::io::Write::write(
                 &mut this.decoder.get_mut(),
                 &this.input_buffer[..len + 4]
             )?;
             
-            println!("input_end wrote {}", written);
-            
             this.decoder.get_mut().set_position(0);
-            // this.decoder.get_mut().get_mut().resize(this.input_end, 0);
             
             this.input_end    = 0;
             this.output_start = 0;
             this.output_end   = 0;
-            
-            // println!("decompressing cursor");
             
             loop {
                 let decoded = std::io::Read::read(
@@ -184,12 +153,8 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                     break;
                 }
                 
-                println!("loop count --------- {}", decoded);
-                
                 this.output_end += decoded;
             }
-            
-            println!("output_end is {}", this.output_end);
         }
     }
 }
@@ -235,8 +200,6 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
         }
 
         loop {
-            println!("main_write_loop");
-
             if this.output_start != this.output_end {
                 match AsyncWrite::poll_write(
                     Pin::new(&mut this.inner),
@@ -244,11 +207,9 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
                     &this.encoder.get_mut().get_mut()[this.output_start..this.output_end]
                 ) {
                     Poll::Ready(Ok(0)) => {
-                        println!("write ok0");
                         return Poll::Ready(Ok(0));
                     }
                     Poll::Ready(Ok(n)) => {
-                        println!("write ready");
                         this.output_start += n;
 
                         if this.output_start != this.output_end {
@@ -258,12 +219,9 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
                         }
                     },
                     Poll::Ready(Err(err)) => {
-                        println!("write error");
-                        error!("write ready error {}", err);
                         return Poll::Ready(Err(err));
                     },
                     Poll::Pending => {
-                        println!("write pending");
                         return Poll::Pending;
                     },
                 }
@@ -271,22 +229,16 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
             
             &this.encoder.get_mut().set_position(0);
             
-            println!("snappy_write post write {}", buf.len());
-            
             this.output_start = 0;
             this.output_end   = 0;
             
             let wrote = std::io::Write::write(&mut this.encoder, buf)?;
-
-            println!("snappy_write post write count {}", wrote);
 
             if this.encoder.get_ref().position() == 0 {
                 std::io::Write::flush(&mut this.encoder)?;
             }
             
             this.output_end = this.encoder.get_ref().position() as usize;
-
-            println!("compressed length {}", this.output_end);
         }
     }
 
