@@ -15,6 +15,7 @@ impl NSQDeflateLevel {
             Some(NSQDeflateLevel { level })
         }
     }
+
     /// Return the compression level
     pub fn get(&self) -> u8 {
         self.level
@@ -38,12 +39,14 @@ impl NSQConfigSharedTLS {
             domain_name:   domain.into(),
         }
     }
+
     /// If the connection should fail if TLS is not supported. Defaults to true.
     pub fn set_required(mut self, required: bool) -> Self {
         self.required = required;
 
         self
     }
+
     /// Set TLS configuration object from `rustls` crate.
     pub fn set_client_config(mut self, client_config: Arc<rustls::ClientConfig>) -> Self {
         self.client_config = Some(client_config);
@@ -55,7 +58,9 @@ impl NSQConfigSharedTLS {
 /// NSQD TCP compression options
 #[derive(Debug, Clone)]
 pub enum NSQConfigSharedCompression {
+    /// Use deflate compression at deflate level
     Deflate(NSQDeflateLevel),
+    /// Use snappy compression
     Snappy
 }
 
@@ -89,30 +94,35 @@ impl NSQConfigShared {
 
         self
     }
+
     /// How long a connection should be healthy before backoff is reset. Defaults to 45 seconds.
     pub fn set_backoff_healthy_after(mut self, duration: std::time::Duration) -> Self {
         self.backoff_healthy_after = duration;
 
         self
     }
+
     /// Connection compression options. Defaults to no compression.
     pub fn set_compression(mut self, compression: NSQConfigSharedCompression) -> Self {
         self.compression = Some(compression);
 
         self
     }
+
     /// Credentials to send NSQD if authentication is requried. Defaults to no credentials.
     pub fn set_credentials(mut self, credentials: Vec<u8>) -> Self {
         self.credentials = Some(credentials);
 
         self
     }
+
     /// Connection encryption options. Defaults to no encryption
     pub fn set_tls(mut self, tls: NSQConfigSharedTLS) -> Self {
         self.tls = Some(tls);
 
         self
     }
+
     /// A string used to identify an NSQ client. Defaults to anonymous identity.
     pub fn set_client_id<S: Into<String>>(mut self, client_id: S) -> Self {
         self.client_id = Some(client_id.into());
