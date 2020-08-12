@@ -16,6 +16,8 @@ pub fn read_u24_le(slice: &[u8]) -> u32 {
     slice[0] as u32 | (slice[1] as u32) << 8 | (slice[2] as u32) << 16
 }
 
+const MAX_COMPRESS_BLOCK_SIZE: usize = 76490;
+
 // end section
 
 pub struct NSQSnappyInflate<S> {
@@ -34,7 +36,7 @@ impl<S> NSQSnappyInflate<S> {
         let cursor = std::io::Cursor::new(output_buffer);
 
         NSQSnappyInflate {
-            input_buffer:  vec![0; 1024],
+            input_buffer:  vec![0; MAX_COMPRESS_BLOCK_SIZE],
             output_buffer: vec![0; 1024],
             decoder:       snap::read::FrameDecoder::new(cursor),
             input_end:     0,
@@ -62,8 +64,6 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
         
         loop {
             while this.output_start != this.output_end {
-                // println!("output_loop start");
-                
                 let count = std::cmp::min(buf.len(), this.output_end - this.output_start);
 
                 buf.clone_from_slice(
@@ -78,13 +78,7 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
             this.output_start = 0;
             this.output_end   = 0;
 
-            // println!("read_loop");
-
             if this.input_end < 4 {
-                // println!("not enough data for kind and size");
-                
-                // println!("async_read");
-
                 match AsyncRead::poll_read(
                     Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..4]
                 ) {
@@ -175,7 +169,7 @@ impl<S> NSQSnappyDeflate<S> {
 
         NSQSnappyDeflate {
             initial:       true,
-            output_buffer: Vec::new(),
+            output_buffer: vec![0; MAX_COMPRESS_BLOCK_SIZE],
             output_start:  0,
             output_end:    0,
             encoder:       snap::write::FrameEncoder::new(cursor),
