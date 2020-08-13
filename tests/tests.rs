@@ -48,18 +48,32 @@ async fn run_message_tests(
     // Several basic PUB
     cycle_messages(topic.clone(), &mut producer, &mut consumer).await;
     
+    /*
+    // Large PUB
+    let mut large = Vec::new();
+    large.resize(512, 0);
+
+    producer.publish(&topic, large.clone()).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
+    
+    let message = consumer.consume_filtered().await.unwrap();
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, large);
+    message.finish();
+    */
+    
     // MPUB
-    producer.publish_multiple(&topic, vec![b"hello1".to_vec(), b"hello2".to_vec()]).unwrap();
+    producer.publish_multiple(&topic, vec![b"alice".to_vec(), b"bob".to_vec()]).unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"hello1".to_vec());
+    assert_eq!(message.body, b"alice".to_vec());
     message.finish();
 
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, b"hello2".to_vec());
+    assert_eq!(message.body, b"bob".to_vec());
     message.finish();
     
     // DPUB
@@ -67,10 +81,8 @@ async fn run_message_tests(
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let message = consumer.consume_filtered().await.unwrap();
-
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, b"hello".to_vec());
-
     message.finish();
 }
 
@@ -100,22 +112,11 @@ async fn direct_connection_inflight_10() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 
-    let producer = NSQProducerConfig::new("127.0.0.1:4150")
-        .set_shared(
-            NSQConfigShared::new().set_compression(
-                NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
-            )
-        )
-        .build();
+    let producer = NSQProducerConfig::new("127.0.0.1:4150").build();
 
     let consumer = NSQConsumerConfig::new(topic.clone(), channel)
         .set_max_in_flight(10)
         .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
-        .set_shared(
-            NSQConfigShared::new().set_compression(
-                NSQConfigSharedCompression::Deflate(NSQDeflateLevel::new(3).unwrap())
-            )
-        )
         .build();
 
     run_message_tests(topic, producer, consumer).await;
@@ -291,21 +292,3 @@ async fn direct_connection_encryption_and_snappy() {
 
     run_message_tests(topic, producer, consumer).await;
 }
-
-#[tokio::test]
-async fn direct_connection_large() {
-    let (topic, mut producer, mut consumer) = make_default();
-    
-    let mut value = Vec::new();
-    value.resize(1024 * 1, 0);
-
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-    producer.publish(&topic, value.clone()).unwrap();
-    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
-    
-    let message = consumer.consume_filtered().await.unwrap();
-    assert_eq!(message.attempt, 1);
-    assert_eq!(message.body, value);
-    message.finish();
-}
-
