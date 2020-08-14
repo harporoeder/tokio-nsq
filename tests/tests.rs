@@ -28,12 +28,8 @@ async fn cycle_messages(
     topic: Arc<NSQTopic>, producer: &mut NSQProducer, consumer: &mut NSQConsumer
 ) {
     let n: u8 = 10;
-    
-    println!("wait 1");
 
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-
-    println!("wait 2");
 
     for x in 0..n {
         producer.publish(&topic, x.to_string().as_bytes().to_vec()).unwrap();
