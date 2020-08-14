@@ -1,12 +1,19 @@
 extern crate rand;
 #[macro_use]
 extern crate matches;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
 use tokio_nsq::*;
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 use std::collections::HashSet;
 use std::sync::Arc;
+
+fn init() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
 
 fn random_topic() -> Arc<NSQTopic> {
     let name: String = thread_rng()
@@ -47,11 +54,11 @@ async fn run_message_tests(
 ) {
     // Several basic PUB
     cycle_messages(topic.clone(), &mut producer, &mut consumer).await;
-    
+
     /*
     // Large PUB
     let mut large = Vec::new();
-    large.resize(512, 0);
+    large.resize(1024 * 1024, 0);
 
     producer.publish(&topic, large.clone()).unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
@@ -61,7 +68,7 @@ async fn run_message_tests(
     assert_eq!(message.body, large);
     message.finish();
     */
-    
+
     // MPUB
     producer.publish_multiple(&topic, vec![b"alice".to_vec(), b"bob".to_vec()]).unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
@@ -257,6 +264,44 @@ async fn direct_connection_snappy() {
         .build();
 
     run_message_tests(topic, producer, consumer).await;
+}
+
+#[tokio::test]
+async fn direct_connection_snappy_large() {
+    init();
+
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
+
+    let mut producer = NSQProducerConfig::new("127.0.0.1:4150")
+        .set_shared(
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Snappy
+            )
+        )
+        .build();
+        
+    let mut consumer = NSQConsumerConfig::new(topic.clone(), channel)
+        .set_max_in_flight(1)
+        .set_sources(NSQConsumerConfigSources::Daemons(vec!["127.0.0.1:4150".to_string()]))
+        .set_shared(
+            NSQConfigShared::new().set_compression(
+                NSQConfigSharedCompression::Snappy
+            )
+        )
+        .build();
+
+    let mut large = Vec::new();
+    large.resize(1024 * 1024, 0);
+
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
+    producer.publish(&topic, large.clone()).unwrap();
+    assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
+
+    let message = consumer.consume_filtered().await.unwrap();
+    assert_eq!(message.attempt, 1);
+    assert_eq!(message.body, large);
+    message.finish();
 }
 
 #[tokio::test]

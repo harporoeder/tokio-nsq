@@ -753,8 +753,6 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     {
         let mut stream_rx = NSQSnappyInflate::new(stream_rx);
         let stream_tx     = NSQSnappyDeflate::new(stream_tx);
-        
-        println!("waiting on OK");
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(body) => {

@@ -28,8 +28,8 @@ snap         = "1"
 matches      = "0.1.8"
 
 [dev-dependencies]
-rand      = "0.7.3"
-simplelog = "0.8"
+rand       = "0.7.3"
+env_logger = "0.7.1"
 
 [build-dependencies]
 built = "0.4"

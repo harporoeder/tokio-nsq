@@ -6,6 +6,9 @@ use std::pin::Pin;
 use crate::tokio::io::AsyncRead;
 use crate::tokio::io::AsyncWrite;
 use tokio::io::Result;
+use std::io::Cursor;
+use crate::tokio::io::AsyncWriteExt;
+use crate::tokio::io::AsyncReadExt;
 
 // start section copied from https://github.com/BurntSushi/rust-snappy
 
@@ -60,11 +63,13 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
     {
         let this = &mut *self;
         
+        let input_len = std::cmp::min(buf.len(), MAX_BLOCK_SIZE);
+
         loop {
             if this.output_start != this.output_end {
-                let count = std::cmp::min(buf.len(), this.output_end - this.output_start);
+                let count = std::cmp::min(input_len, this.output_end - this.output_start);
 
-                buf.clone_from_slice(
+                buf[..count].clone_from_slice(
                     &this.output_buffer[this.output_start..this.output_start + count]
                 );
 
@@ -84,6 +89,8 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                         return Poll::Ready(Ok(0));
                     }
                     Poll::Ready(Ok(n)) => {
+                        debug_assert!(n <= 4);
+
                         this.input_end += n;
                     },
                     Poll::Ready(Err(err)) => {
@@ -98,7 +105,8 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
             }
             
             let len: usize = read_u24_le(&this.input_buffer[1..]) as usize;
-            
+
+
             if this.input_end < len + 4 {
                 match AsyncRead::poll_read(
                     Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..len + 4]
@@ -122,29 +130,27 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
 
             this.decoder.get_mut().set_position(0);
             
-            std::io::Write::write(
+            let wrote = std::io::Write::write(
                 &mut this.decoder.get_mut(),
                 &this.input_buffer[..len + 4]
             )?;
+            
+            debug_assert!(wrote == len + 4);
             
             this.decoder.get_mut().set_position(0);
             
             this.input_end    = 0;
             this.output_start = 0;
             this.output_end   = 0;
+
+            let decoded = std::io::Read::read(
+                &mut this.decoder,
+                &mut this.output_buffer[this.output_end..],
+            )?;
             
-            loop {
-                let decoded = std::io::Read::read(
-                    &mut this.decoder,
-                    &mut this.output_buffer[this.output_end..],
-                )?;
-                
-                if decoded == 0 {
-                    break;
-                }
-                
-                this.output_end += decoded;
-            }
+            debug_assert!(this.decoder.get_ref().position() == (len + 4) as u64);
+            
+            this.output_end += decoded;
         }
     }
 }
@@ -172,6 +178,10 @@ impl<S> NSQSnappyDeflate<S> {
             inner,
         }
     }
+    
+    pub fn get_mut(&mut self) -> &mut S {
+        &mut self.inner
+    }
 }
 
 impl<S> AsyncWrite for NSQSnappyDeflate<S>
@@ -188,6 +198,8 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
         if buf.is_empty() {
             return Poll::Ready(Ok(0));
         }
+        
+        let input_len = std::cmp::min(buf.len(), MAX_BLOCK_SIZE);
 
         loop {
             if this.output_start != this.output_end {
@@ -205,7 +217,7 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
                         if this.output_start != this.output_end {
                             return Poll::Pending;
                         } else {
-                            return Poll::Ready(Ok(buf.len()));
+                            return Poll::Ready(Ok(input_len));
                         }
                     },
                     Poll::Ready(Err(err)) => {
@@ -222,7 +234,7 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
             this.output_start = 0;
             this.output_end   = 0;
             
-            std::io::Write::write(&mut this.encoder, buf)?;
+            std::io::Write::write(&mut this.encoder, &buf[0..input_len])?;
 
             if this.encoder.get_ref().position() == 0 {
                 std::io::Write::flush(&mut this.encoder)?;
@@ -247,4 +259,62 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
     {
         AsyncWrite::poll_shutdown(Pin::new(&mut self.inner), cx)
     }
+}
+
+#[tokio::test]
+async fn test_snappy_identity_small() {
+    let buffer_read: Vec<u8>  = Vec::new();
+    let buffer_write: Vec<u8> = Vec::new();
+    
+    let mut reader = NSQSnappyInflate::new(Cursor::new(buffer_read));
+    let mut writer = NSQSnappyDeflate::new(Cursor::new(buffer_write));
+    
+    writer.write_all(b"hello world!").await.unwrap();
+    let position = writer.get_mut().position() as usize;
+    assert_ne!(position, 0);
+    
+    reader.get_mut().get_mut().resize(position, 0);
+    
+    reader.get_mut().get_mut().clone_from_slice(
+        &writer.get_mut().get_mut()[0..position]
+    );
+
+    writer.get_mut().set_position(0);
+
+    let mut result: Vec<u8> = Vec::new();
+    result.resize(12, 0);
+
+    reader.read_exact(&mut result).await.unwrap();
+    
+    assert_eq!(result, b"hello world!".to_vec());
+}
+
+#[tokio::test]
+async fn test_snappy_identity_large() {
+    let buffer_read: Vec<u8>  = Vec::new();
+    let buffer_write: Vec<u8> = Vec::new();
+    
+    let mut reader = NSQSnappyInflate::new(Cursor::new(buffer_read));
+    let mut writer = NSQSnappyDeflate::new(Cursor::new(buffer_write));
+    
+    let mut large: Vec<u8> = Vec::new();
+    large.resize(1024 * 1024, 0);
+    
+    writer.write_all(&large).await.unwrap();
+    let position = writer.get_mut().position() as usize;
+    assert_ne!(position, 0);
+    
+    reader.get_mut().get_mut().resize(position, 0);
+    
+    reader.get_mut().get_mut().clone_from_slice(
+        &writer.get_mut().get_mut()[0..position]
+    );
+
+    writer.get_mut().set_position(0);
+
+    let mut result = large.clone();
+
+    reader.read_exact(&mut result).await.unwrap();
+    
+    assert_eq!(result, large);
 }
