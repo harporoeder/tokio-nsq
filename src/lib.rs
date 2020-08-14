@@ -45,7 +45,6 @@ extern crate regex;
 #[macro_use]
 extern crate lazy_static;
 extern crate backoff;
-extern crate miniz_oxide;
 extern crate gethostname;
 #[macro_use]
 extern crate matches;
@@ -66,9 +65,9 @@ use failure::{Error};
 mod connection;
 mod producer;
 mod consumer;
-mod compression;
 mod connection_config;
 mod snappy;
+mod deflate;
 
 pub use connection::
     { NSQTopic

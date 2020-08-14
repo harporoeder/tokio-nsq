@@ -28,8 +28,12 @@ async fn cycle_messages(
     topic: Arc<NSQTopic>, producer: &mut NSQProducer, consumer: &mut NSQConsumer
 ) {
     let n: u8 = 10;
+    
+    println!("wait 1");
 
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
+
+    println!("wait 2");
 
     for x in 0..n {
         producer.publish(&topic, x.to_string().as_bytes().to_vec()).unwrap();
@@ -55,7 +59,6 @@ async fn run_message_tests(
     // Several basic PUB
     cycle_messages(topic.clone(), &mut producer, &mut consumer).await;
 
-    /*
     // Large PUB
     let mut large = Vec::new();
     large.resize(1024 * 1024, 0);
@@ -67,7 +70,6 @@ async fn run_message_tests(
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, large);
     message.finish();
-    */
 
     // MPUB
     producer.publish_multiple(&topic, vec![b"alice".to_vec(), b"bob".to_vec()]).unwrap();
@@ -155,6 +157,8 @@ async fn lookup_consume_basic() {
 
 #[tokio::test]
 async fn direct_connection_deflate() {
+    init();
+
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
 

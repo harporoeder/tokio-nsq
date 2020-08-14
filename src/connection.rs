@@ -10,9 +10,10 @@ use std::fmt;
 use regex::Regex;
 use crate::backoff::backoff::Backoff;
 use std::time::{Instant};
+use async_compression::tokio_02::bufread::DeflateDecoder;
 
-use compression::*;
 use snappy::*;
+use deflate::*;
 
 lazy_static! {
     static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
@@ -727,8 +728,11 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     let (stream_rx, stream_tx) = if
         let Some(NSQConfigSharedCompression::Deflate(level)) = &state.config.shared.compression
     {
-        let mut stream_rx = NSQInflate::new(stream_rx);
-        let stream_tx     = NSQDeflate::new(stream_tx, level.get());
+        let stream_tx     = NSQInflateCompress::new(stream_tx, level.get());
+
+        let mut stream_rx = tokio::io::BufReader::new(
+            DeflateDecoder::new(tokio::io::BufReader::new(stream_rx))
+        );
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(body) => {
