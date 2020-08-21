@@ -5,31 +5,38 @@ services:
   nsq:
     image: nsqio/nsq
     restart: always
-    ports:
-      - 4151:4151
-      - 4150:4150
     volumes:
-      - ./keys:/keys
+      - ./keys:/keys:ro
     command: /nsqd --lookupd-tcp-address=nsqlookupd:4160 --tls-cert /keys/cert.pem --tls-key /keys/key.pem
     depends_on:
       - nsqlookupd
 
+  nsqwithauth:
+    image: nsqio/nsq
+    restart: always
+    command: /nsqd --auth-http-address=nsqauth:8080
+    depends_on:
+      - nsqauth
+
   nsqlookupd:
     image: nsqio/nsq
     restart: always
-    ports:
-      - 4160:4160
-      - 4161:4161
     command: /nsqlookupd
 
   nsqadmin:
     image: nsqio/nsq
     restart: always
-    ports:
-      - 4171:4171
     command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
     depends_on:
       - nsqlookupd
+
+  nsqauth:
+    image: node
+    working_dir: "/app"
+    restart: always
+    volumes:
+      - .:/app:ro
+    command: node auth.js
 
   dev:
     image: rust

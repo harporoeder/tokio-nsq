@@ -115,6 +115,30 @@ async fn direct_connection_basic() {
 }
 
 #[tokio::test]
+async fn direct_connection_auth() {
+    init();
+
+    let topic   = random_topic();
+    let channel = NSQChannel::new("test").unwrap();
+
+    let producer = NSQProducerConfig::new("nsqwithauth:4150")
+        .set_shared(
+            NSQConfigShared::new().set_credentials(b"secret".to_vec())
+        )
+        .build();
+
+    let consumer = NSQConsumerConfig::new(topic.clone(), channel)
+        .set_max_in_flight(1)
+        .set_sources(NSQConsumerConfigSources::Daemons(vec!["nsqwithauth:4150".to_string()]))
+        .set_shared(
+            NSQConfigShared::new().set_credentials(b"secret".to_vec())
+        )
+        .build();
+
+    run_message_tests(topic, producer, consumer).await;
+}
+
+#[tokio::test]
 async fn direct_connection_inflight_10() {
     let topic   = random_topic();
     let channel = NSQChannel::new("test").unwrap();
