@@ -1,31 +1,39 @@
-version: '3.1'
+version: '2.3'
 
 services:
 
   nsq:
     image: nsqio/nsq
     restart: always
-    network_mode: host
     ports:
-      - 0.0.0.0:4151:4151
-      - 0.0.0.0:4150:4150
+      - 4151:4151
+      - 4150:4150
     volumes:
-      - ./key:/keys
-    command: /nsqd --lookupd-tcp-address=127.0.0.1:4160 --tls-cert /keys/cert.pem --tls-key /keys/key.pem
+      - ./keys:/keys
+    command: /nsqd --lookupd-tcp-address=nsqlookupd:4160 --tls-cert /keys/cert.pem --tls-key /keys/key.pem
+    depends_on:
+      - nsqlookupd
 
   nsqlookupd:
     image: nsqio/nsq
-    network_mode: host
     restart: always
     ports:
-      - 0.0.0.0:4160:4160
-      - 0.0.0.0:4161:4161
+      - 4160:4160
+      - 4161:4161
     command: /nsqlookupd
 
   nsqadmin:
     image: nsqio/nsq
-    network_mode: host
     restart: always
     ports:
-      - 0.0.0.0:4171:4171
-    command: /nsqadmin --lookupd-http-address=127.0.0.1:4161
+      - 4171:4171
+    command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
+    depends_on:
+      - nsqlookupd
+
+  dev:
+    image: rust
+    working_dir: "/app"
+    user: "${UID}:${GID}"
+    volumes:
+      - .:/app:rw
