@@ -162,7 +162,7 @@ impl NSQConfigShared {
         self
     }
 
-    /// The user agent sent to NSQD. Defaults to "tokio_nsq/<version>".
+    /// The user agent sent to NSQD. Defaults to "tokio_nsq/package_version".
     pub fn set_user_agent<S: Into<String>>(mut self, user_agent: S) -> Self {
         self.user_agent = Some(user_agent.into());
 
