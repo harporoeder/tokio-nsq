@@ -1,8 +1,6 @@
 extern crate rand;
 #[macro_use]
 extern crate matches;
-#[macro_use]
-extern crate log;
 extern crate env_logger;
 
 use tokio_nsq::*;

@@ -1,7 +1,6 @@
 extern crate async_compression;
 
 use std::pin::Pin;
-use crate::tokio::io::AsyncRead;
 use crate::tokio::io::AsyncWrite;
 use core::task::Context;
 use core::task::Poll;
@@ -61,7 +60,7 @@ impl<S> AsyncWrite for NSQInflateCompress<S>
                 }
                 Poll::Ready(Ok(n)) => {
                     self.written += n;
-                    
+
                     continue;
                 },
                 Poll::Ready(Err(err)) => {
