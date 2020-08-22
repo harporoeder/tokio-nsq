@@ -566,10 +566,15 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         None           => gethostname::gethostname().to_string_lossy().to_string()
     };
 
+    let user_agent = match &state.config.shared.user_agent {
+        Some(user_agent) => user_agent.clone(),
+        None             => "tokio_nsq/".to_string() + &built_info::PKG_VERSION.to_string()
+    };
+
     let identify_body = IdentifyBody {
         client_id:           state.config.shared.client_id.clone(),
         hostname:            hostname,
-        user_agent:          "rustnsq/".to_string() + &built_info::PKG_VERSION.to_string(),
+        user_agent:          user_agent,
         feature_negotiation: true,
         tls_v1:              state.config.shared.tls.is_some(),
         sample_rate:         state.config.sample_rate.map(|rate| rate.get()),

@@ -77,6 +77,7 @@ pub struct NSQConfigShared {
     pub(crate) write_timeout:         Option<std::time::Duration>,
     pub(crate) read_timeout:          Option<std::time::Duration>,
     pub(crate) hostname:              Option<String>,
+    pub(crate) user_agent:            Option<String>,
 }
 
 impl NSQConfigShared {
@@ -92,6 +93,7 @@ impl NSQConfigShared {
             write_timeout:         Some(std::time::Duration::new(10, 0)),
             read_timeout:          Some(std::time::Duration::new(60, 0)),
             hostname:              None,
+            user_agent:            None,
         }
     }
 
@@ -160,6 +162,12 @@ impl NSQConfigShared {
         self
     }
 
+    /// The user agent sent to NSQD. Defaults to "tokio_nsq/<version>".
+    pub fn set_user_agent<S: Into<String>>(mut self, user_agent: S) -> Self {
+        self.user_agent = Some(user_agent.into());
+
+        self
+    }
 }
 
 impl Default for NSQConfigShared {
