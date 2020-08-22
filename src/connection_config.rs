@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use regex::Regex;
 
 /// A smart constructor validating a deflate compression level
 #[derive(Clone, Debug)]
@@ -135,4 +136,89 @@ impl Default for NSQConfigShared {
     fn default() -> Self {
         Self::new()
     }
+}
+
+lazy_static! {
+    static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
+}
+
+fn is_valid_name(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
+
+    NAMEREGEX.is_match(name)
+}
+
+/// A smart constructor validating an NSQ topic name
+#[derive(Clone, Debug)]
+pub struct NSQTopic {
+    pub(crate) topic: String
+}
+
+impl NSQTopic {
+    /// Must match the regex `^[\.a-zA-Z0-9_-]+(#ephemeral)?$` and have length > 0 && < 65.
+    pub fn new<S: Into<String>>(topic: S) -> Option<Arc<Self>> {
+        let topic = topic.into();
+
+        if is_valid_name(&topic) {
+            Some(Arc::new(Self{
+                topic
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+/// A smart constructor validating an NSQ channel name
+#[derive(Clone, Debug)]
+pub struct NSQChannel {
+    pub(crate) channel: String
+}
+
+impl NSQChannel {
+    /// Must match the regex `^[\.a-zA-Z0-9_-]+(#ephemeral)?$` and have length > 0 && < 65.
+    pub fn new<S: Into<String>>(channel: S) -> Option<Arc<Self>> {
+        let channel = channel.into();
+
+        if is_valid_name(&channel) {
+            Some(Arc::new(Self{
+                channel
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+/// A smart constructor validating an NSQ sample rate
+#[derive(Clone, Debug, Copy)]
+pub struct NSQSampleRate {
+    pub(crate) rate: u8
+}
+
+impl NSQSampleRate {
+    /// N must be > 0 && <= 100
+    pub fn new(rate: u8) -> Option<NSQSampleRate> {
+        if rate < 1 || rate > 100 {
+            None
+        } else {
+            Some(NSQSampleRate { rate })
+        }
+    }
+    /// Return the sample rate
+    pub fn get(&self) -> u8 {
+        self.rate
+    }
+}
+
+#[derive(Clone)]
+pub struct NSQDConfig {
+    pub address:            String,
+    pub subscribe:          Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
+    pub shared:             NSQConfigShared,
+    pub sample_rate:        Option<NSQSampleRate>,
+    pub max_requeue_delay:  std::time::Duration,
+    pub base_requeue_delay: std::time::Duration,
 }

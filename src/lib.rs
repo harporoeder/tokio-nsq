@@ -71,11 +71,8 @@ mod deflate;
 mod with_stopper;
 
 pub use connection::
-    { NSQTopic
-    , NSQChannel
-    , NSQEvent
+    { NSQEvent
     , NSQMessage
-    , NSQSampleRate
     , NSQRequeueDelay
     };
 
@@ -96,6 +93,9 @@ pub use connection_config::
     , NSQConfigSharedCompression
     , NSQConfigShared
     , NSQDeflateLevel
+    , NSQSampleRate
+    , NSQTopic
+    , NSQChannel
     };
 
 mod built_info {
