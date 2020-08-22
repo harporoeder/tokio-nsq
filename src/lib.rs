@@ -68,6 +68,7 @@ mod consumer;
 mod connection_config;
 mod snappy;
 mod deflate;
+mod with_stopper;
 
 pub use connection::
     { NSQTopic

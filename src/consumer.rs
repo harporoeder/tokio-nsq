@@ -1,6 +1,7 @@
 use super::*;
 use connection::*;
 use connection_config::*;
+use with_stopper::with_stopper;
 
 /// Configuration object for NSQLookup nodes
 #[derive(Clone)]

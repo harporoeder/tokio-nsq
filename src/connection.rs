@@ -14,6 +14,7 @@ use async_compression::tokio_02::bufread::DeflateDecoder;
 
 use snappy::*;
 use deflate::*;
+use with_stopper::with_stopper;
 
 lazy_static! {
     static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
@@ -795,20 +796,6 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     run_generic(state, stream_rx, stream_tx).await?;
 
     Ok(())
-}
-
-pub async fn with_stopper(
-    shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    operation:   impl std::future::Future
-) {
-    tokio::select! {
-        _ = shutdown_rx => {
-            info!("stopper operation stopped via oneshot");
-        },
-        _ = operation => {
-            info!("stopper operation finished naturally");
-        }
-    }
 }
 
 async fn run_connection_supervisor(mut state: NSQDConnectionState) {
