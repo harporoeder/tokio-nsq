@@ -76,6 +76,7 @@ pub struct NSQConfigShared {
     pub(crate) client_id:             Option<String>,
     pub(crate) write_timeout:         Option<std::time::Duration>,
     pub(crate) read_timeout:          Option<std::time::Duration>,
+    pub(crate) hostname:              Option<String>,
 }
 
 impl NSQConfigShared {
@@ -90,6 +91,7 @@ impl NSQConfigShared {
             client_id:             None,
             write_timeout:         Some(std::time::Duration::new(10, 0)),
             read_timeout:          Some(std::time::Duration::new(60, 0)),
+            hostname:              None,
         }
     }
 
@@ -150,6 +152,14 @@ impl NSQConfigShared {
 
         self
     }
+
+    /// The hostname sent to NSQD. Defaults to the hostname provided by the operating system.
+    pub fn set_hostname<S: Into<String>>(mut self, hostname: S) -> Self {
+        self.hostname = Some(hostname.into());
+
+        self
+    }
+
 }
 
 impl Default for NSQConfigShared {

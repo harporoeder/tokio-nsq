@@ -561,9 +561,14 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     stream.set_write_timeout(state.config.shared.write_timeout);
     stream.set_read_timeout(state.config.shared.read_timeout);
 
+    let hostname = match &state.config.shared.hostname {
+        Some(hostname) => hostname.clone(),
+        None           => gethostname::gethostname().to_string_lossy().to_string()
+    };
+
     let identify_body = IdentifyBody {
         client_id:           state.config.shared.client_id.clone(),
-        hostname:            gethostname::gethostname().to_string_lossy().to_string(),
+        hostname:            hostname,
         user_agent:          "rustnsq/".to_string() + &built_info::PKG_VERSION.to_string(),
         feature_negotiation: true,
         tls_v1:              state.config.shared.tls.is_some(),
