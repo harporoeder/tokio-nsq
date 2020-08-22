@@ -555,7 +555,11 @@ fn read_to_dyn<S: Send + AsyncRead + std::marker::Unpin + 'static>(stream_rx: S)
 }
 
 async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
-    let mut stream = tokio::net::TcpStream::connect(state.config.address.clone()).await?;
+    let stream = tokio::net::TcpStream::connect(state.config.address.clone()).await?;
+
+    let mut stream = tokio_io_timeout::TimeoutStream::new(stream);
+    stream.set_write_timeout(state.config.shared.write_timeout);
+    stream.set_read_timeout(state.config.shared.read_timeout);
 
     let identify_body = IdentifyBody {
         client_id:           state.config.shared.client_id.clone(),

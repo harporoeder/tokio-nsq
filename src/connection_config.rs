@@ -74,6 +74,8 @@ pub struct NSQConfigShared {
     pub(crate) tls:                   Option<NSQConfigSharedTLS>,
     pub(crate) credentials:           Option<Vec<u8>>,
     pub(crate) client_id:             Option<String>,
+    pub(crate) write_timeout:         Option<std::time::Duration>,
+    pub(crate) read_timeout:          Option<std::time::Duration>,
 }
 
 impl NSQConfigShared {
@@ -86,6 +88,8 @@ impl NSQConfigShared {
             tls:                   None,
             credentials:           None,
             client_id:             None,
+            write_timeout:         Some(std::time::Duration::new(10, 0)),
+            read_timeout:          Some(std::time::Duration::new(60, 0)),
         }
     }
 
@@ -127,6 +131,22 @@ impl NSQConfigShared {
     /// A string used to identify an NSQ client. Defaults to anonymous identity.
     pub fn set_client_id<S: Into<String>>(mut self, client_id: S) -> Self {
         self.client_id = Some(client_id.into());
+
+        self
+    }
+
+    /// Timeout for socket write operations. Defaults to 10 seconds.
+    /// Setting the duration to `None` disables write timeouts.
+    pub fn set_write_timeout(mut self, duration: Option<std::time::Duration>) -> Self {
+        self.write_timeout = duration;
+
+        self
+    }
+
+    /// Timeout for socket read operations. Defaults to 60 seconds. Must be greater than the
+    /// heartbeat interval. Setting the duration to `None` disables read timeouts.
+    pub fn set_read_timeout(mut self, duration: Option<std::time::Duration>) -> Self {
+        self.read_timeout = duration;
 
         self
     }

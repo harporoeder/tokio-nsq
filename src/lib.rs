@@ -48,6 +48,7 @@ extern crate backoff;
 extern crate gethostname;
 #[macro_use]
 extern crate matches;
+extern crate tokio_io_timeout;
 
 use std::collections::HashMap;
 use std::collections::HashSet;

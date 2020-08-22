@@ -26,6 +26,7 @@ gethostname       = "0.2.1"
 snap              = "1"
 matches           = "0.1.8"
 async-compression = { version = "0.3.5", features = ["tokio-02", "deflate"] }
+tokio-io-timeout  = "0.4.0"
 
 [dev-dependencies]
 rand       = "0.7.3"
