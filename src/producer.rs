@@ -63,7 +63,7 @@ impl NSQProducer {
 
     /// Queue a PUB message to be asynchronously sent
     pub fn publish(&mut self, topic: &Arc<NSQTopic>, value: Vec<u8>) -> Result<(), Error> {
-        self.connection.publish(topic.clone(), value)
+        self.connection.queue_message(MessageToNSQ::PUB(topic.clone(), value))
     }
 
     /// Queue a DPUB message to be asynchronously sent
@@ -71,13 +71,13 @@ impl NSQProducer {
         &mut self, topic: &Arc<NSQTopic>, value: Vec<u8>, delay_milliseconds: u32
     ) -> Result<(), Error>
     {
-        self.connection.publish_deferred(topic.clone(), value, delay_milliseconds)
+        self.connection.queue_message(MessageToNSQ::DPUB(topic.clone(), value, delay_milliseconds))
     }
 
     /// Queue an MPUB message to be asynchronously sent
     pub fn publish_multiple(&mut self, topic: &Arc<NSQTopic>, value: Vec<Vec<u8>>)
         -> Result<(), Error>
     {
-        self.connection.publish_multiple(topic.clone(), value)
+        self.connection.queue_message(MessageToNSQ::MPUB(topic.clone(), value))
     }
 }

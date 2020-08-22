@@ -751,7 +751,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     } else {
         (stream_rx, stream_tx)
     };
-    
+
     let (mut stream_rx, mut stream_tx) = if
         let Some(NSQConfigSharedCompression::Snappy) = &state.config.shared.compression
     {
@@ -957,7 +957,7 @@ impl NSQDConnection {
         self.from_connection_rx.recv().await
     }
 
-    fn queue_message(&mut self, message: MessageToNSQ) -> Result<(), Error> {
+    pub fn queue_message(&mut self, message: MessageToNSQ) -> Result<(), Error> {
         if self.shared.healthy.load(Ordering::SeqCst) {
             if self.to_connection_tx_ref.send(message).is_err() {
                 return Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
@@ -971,27 +971,6 @@ impl NSQDConnection {
             Err(Error::from(std::io::Error::new(std::io::ErrorKind::Other,
                  "connection is disconnected")))
         }
-    }
-
-    pub fn publish(&mut self, topic: Arc<NSQTopic>, value: Vec<u8>) -> Result<(), Error> {
-        self.queue_message(MessageToNSQ::PUB(topic, value))
-    }
-
-    pub fn publish_deferred(
-        &mut self, topic: Arc<NSQTopic>, value: Vec<u8>, delay_milliseconds: u32
-    ) -> Result<(), Error>
-    {
-        self.queue_message(MessageToNSQ::DPUB(topic, value, delay_milliseconds))
-    }
-
-    pub fn publish_multiple(&mut self, topic: Arc<NSQTopic>, value: Vec<Vec<u8>>)
-        -> Result<(), Error>
-    {
-        self.queue_message(MessageToNSQ::MPUB(topic, value))
-    }
-
-    pub fn ready(&mut self, count: u16) -> Result<(), Error> {
-        self.queue_message(MessageToNSQ::RDY(count))
     }
 }
 

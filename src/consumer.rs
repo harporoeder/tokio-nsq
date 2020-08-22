@@ -225,7 +225,7 @@ async fn lookup(
                         from_connections_tx.clone()
                     );
 
-                    let _ = client.ready(1);
+                    let _ = client.queue_message(MessageToNSQ::RDY(1));
 
                     let mut found_by = HashSet::new();
                     found_by.insert(address.clone());
@@ -292,7 +292,7 @@ async fn rebalancer_step(
     };
 
     for node in healthy.iter_mut() {
-        let _ = NSQDConnection::ready(*node, partial as u16);
+        let _ = NSQDConnection::queue_message(*node, MessageToNSQ::RDY(partial as u16));
     }
 
     true
