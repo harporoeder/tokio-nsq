@@ -261,9 +261,9 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::io::Cursor;
-    use crate::tokio::io::AsyncWriteExt;
-    use crate::tokio::io::AsyncReadExt;
+    use ::std::io::Cursor;
+    use ::tokio::io::AsyncWriteExt;
+    use ::tokio::io::AsyncReadExt;
 
     #[tokio::test]
     async fn test_snappy_identity_small() {

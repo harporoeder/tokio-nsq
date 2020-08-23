@@ -1,7 +1,13 @@
-use super::*;
-use connection::*;
-use connection_config::*;
-use with_stopper::with_stopper;
+use ::std::sync::Arc;
+use ::core::result::Result;
+use ::failure::Error;
+use ::std::collections::HashMap;
+use ::std::collections::HashSet;
+use ::log::*;
+
+use crate::connection::*;
+use crate::connection_config::*;
+use crate::with_stopper::with_stopper;
 
 /// Configuration object for NSQLookup nodes
 #[derive(Clone)]

@@ -1,19 +1,26 @@
-use super::*;
-use connection_config::*;
+use ::std::sync::atomic::{AtomicU64, AtomicU16, AtomicBool, Ordering};
+use ::tokio_rustls::webpki::DNSNameRef;
+use ::rustls::*;
+use ::tokio_rustls::{ TlsConnector, rustls::ClientConfig };
+use ::failure::Fail;
+use ::failure::Error;
+use ::std::fmt;
+use ::backoff::backoff::Backoff;
+use ::std::time::{Instant};
+use ::async_compression::tokio_02::bufread::DeflateDecoder;
+use ::std::sync::Arc;
+use ::tokio::io::AsyncWrite;
+use ::tokio::io::AsyncRead;
+use ::tokio::io::AsyncWriteExt;
+use ::tokio::io::AsyncReadExt;
+use ::log::*;
+use ::std::convert::TryFrom;
 
-use ::std::sync::atomic::{AtomicU64, AtomicU16};
-use tokio_rustls::webpki::DNSNameRef;
-use rustls::*;
-use tokio_rustls::{ TlsConnector, rustls::ClientConfig };
-use failure::Fail;
-use std::fmt;
-use crate::backoff::backoff::Backoff;
-use std::time::{Instant};
-use async_compression::tokio_02::bufread::DeflateDecoder;
-
+use crate::built_info;
 use crate::snappy::*;
 use crate::deflate::*;
 use crate::with_stopper::with_stopper;
+use crate::connection_config::*;
 
 #[derive(Debug, Fail)]
 struct NoneError;
