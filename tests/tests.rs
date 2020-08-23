@@ -1,13 +1,11 @@
-extern crate rand;
 #[macro_use]
 extern crate matches;
-extern crate env_logger;
 
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
-use std::collections::HashSet;
-use std::sync::Arc;
-use tokio_nsq::*;
+use ::rand::distributions::Alphanumeric;
+use ::rand::{thread_rng, Rng};
+use ::std::collections::HashSet;
+use ::std::sync::Arc;
+use ::tokio_nsq::*;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
