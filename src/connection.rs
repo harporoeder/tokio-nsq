@@ -573,8 +573,6 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
     let identify_body = IdentifyBody {
         client_id:           state.config.shared.client_id.clone(),
-        hostname:            hostname,
-        user_agent:          user_agent,
         feature_negotiation: true,
         tls_v1:              state.config.shared.tls.is_some(),
         sample_rate:         state.config.sample_rate.map(|rate| rate.get()),
@@ -584,6 +582,8 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         snappy:              matches!(
             state.config.shared.compression, Some(NSQConfigSharedCompression::Snappy)
         ),
+        hostname,
+        user_agent,
     };
 
     let serialized = serde_json::to_string(&identify_body)?;
