@@ -232,23 +232,26 @@ enum Frame {
 async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
     stream: &mut S,
 ) -> Result<Frame, Error> {
-    let mut frame_size_buffer = [0; 4];
-    stream.read_exact(&mut frame_size_buffer).await?;
-    let frame_size = u32::from_be_bytes(frame_size_buffer) - 4;
+    let frame_size = stream.read_u32().await?;
 
-    let mut frame_type_buffer = [0; 4];
-    stream.read_exact(&mut frame_type_buffer).await?;
-    let frame_type = u32::from_be_bytes(frame_type_buffer);
+    if frame_size < 4 {
+        return Err(Error::from(ProtocolError {
+            message: "frame_size less than 4 bytes".to_string()
+        }));
+    }
+
+    let frame_body_size = frame_size - 4;
+    let frame_type = stream.read_u32().await?;
 
     if frame_type == 0 {
         let mut frame_body = Vec::new();
-        frame_body.resize(frame_size as usize, 0);
+        frame_body.resize(frame_body_size as usize, 0);
         stream.read_exact(&mut frame_body).await?;
 
         return Ok(Frame::Response(frame_body));
     } else if frame_type == 1 {
         let mut frame_body = Vec::new();
-        frame_body.resize(frame_size as usize, 0);
+        frame_body.resize(frame_body_size as usize, 0);
         stream.read_exact(&mut frame_body).await?;
 
         let s = std::str::from_utf8(&frame_body)?;
@@ -265,18 +268,13 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
             }));
         }
     } else if frame_type == 2 {
-        let mut message_timestamp_buffer = [0; 8];
-        stream.read_exact(&mut message_timestamp_buffer).await?;
-        let message_timestamp = u64::from_be_bytes(message_timestamp_buffer);
-
-        let mut message_attempts_buffer = [0; 2];
-        stream.read_exact(&mut message_attempts_buffer).await?;
-        let message_attempts = u16::from_be_bytes(message_attempts_buffer);
+        let message_timestamp = stream.read_u64().await?;
+        let message_attempts = stream.read_u16().await?;
 
         let mut message_id = [0; 16];
         stream.read_exact(&mut message_id).await?;
 
-        let body_size = frame_size - 8 - 2 - 16;
+        let body_size = frame_body_size - 8 - 2 - 16;
         let mut message_body = Vec::new();
         message_body.resize(body_size as usize, 0);
         stream.read_exact(&mut message_body).await?;
