@@ -1,10 +1,10 @@
-use ::std::sync::Arc;
 use ::regex::Regex;
+use ::std::sync::Arc;
 
 /// A smart constructor validating a deflate compression level
 #[derive(Clone, Debug)]
 pub struct NSQDeflateLevel {
-    pub(crate) level: u8
+    pub(crate) level: u8,
 }
 
 impl NSQDeflateLevel {
@@ -26,18 +26,18 @@ impl NSQDeflateLevel {
 /// NSQD TLS encryption options
 #[derive(Clone)]
 pub struct NSQConfigSharedTLS {
-    pub(crate) required:      bool,
+    pub(crate) required: bool,
     pub(crate) client_config: Option<Arc<rustls::ClientConfig>>,
-    pub(crate) domain_name:   String,
+    pub(crate) domain_name: String,
 }
 
 impl NSQConfigSharedTLS {
     /// Construct a TLS configuration object. Defaults are insecure.
     pub fn new<S: Into<String>>(domain: S) -> Self {
         NSQConfigSharedTLS {
-            required:      true,
+            required: true,
             client_config: None,
-            domain_name:   domain.into(),
+            domain_name: domain.into(),
         }
     }
 
@@ -49,7 +49,10 @@ impl NSQConfigSharedTLS {
     }
 
     /// Set TLS configuration object from `rustls` crate.
-    pub fn set_client_config(mut self, client_config: Arc<rustls::ClientConfig>) -> Self {
+    pub fn set_client_config(
+        mut self,
+        client_config: Arc<rustls::ClientConfig>,
+    ) -> Self {
         self.client_config = Some(client_config);
 
         self
@@ -62,63 +65,74 @@ pub enum NSQConfigSharedCompression {
     /// Use deflate compression at deflate level
     Deflate(NSQDeflateLevel),
     /// Use snappy compression
-    Snappy
+    Snappy,
 }
 
 /// Configuration options shared by both produces and consumers
 #[derive(Clone)]
 pub struct NSQConfigShared {
-    pub(crate) backoff_max_wait:      std::time::Duration,
+    pub(crate) backoff_max_wait: std::time::Duration,
     pub(crate) backoff_healthy_after: std::time::Duration,
-    pub(crate) compression:           Option<NSQConfigSharedCompression>,
-    pub(crate) tls:                   Option<NSQConfigSharedTLS>,
-    pub(crate) credentials:           Option<Vec<u8>>,
-    pub(crate) client_id:             Option<String>,
-    pub(crate) write_timeout:         Option<std::time::Duration>,
-    pub(crate) read_timeout:          Option<std::time::Duration>,
-    pub(crate) hostname:              Option<String>,
-    pub(crate) user_agent:            Option<String>,
+    pub(crate) compression: Option<NSQConfigSharedCompression>,
+    pub(crate) tls: Option<NSQConfigSharedTLS>,
+    pub(crate) credentials: Option<Vec<u8>>,
+    pub(crate) client_id: Option<String>,
+    pub(crate) write_timeout: Option<std::time::Duration>,
+    pub(crate) read_timeout: Option<std::time::Duration>,
+    pub(crate) hostname: Option<String>,
+    pub(crate) user_agent: Option<String>,
 }
 
 impl NSQConfigShared {
     /// Construct a configuration with sane defaults.
     pub fn new() -> Self {
         NSQConfigShared {
-            backoff_max_wait:      std::time::Duration::new(60, 0),
+            backoff_max_wait: std::time::Duration::new(60, 0),
             backoff_healthy_after: std::time::Duration::new(45, 0),
-            compression:           None,
-            tls:                   None,
-            credentials:           None,
-            client_id:             None,
-            write_timeout:         Some(std::time::Duration::new(10, 0)),
-            read_timeout:          Some(std::time::Duration::new(60, 0)),
-            hostname:              None,
-            user_agent:            None,
+            compression: None,
+            tls: None,
+            credentials: None,
+            client_id: None,
+            write_timeout: Some(std::time::Duration::new(10, 0)),
+            read_timeout: Some(std::time::Duration::new(60, 0)),
+            hostname: None,
+            user_agent: None,
         }
     }
 
     /// The maximum reconnect backoff wait. Defaults to 60 seconds.
-    pub fn set_backoff_max_wait(mut self, duration: std::time::Duration) -> Self {
+    pub fn set_backoff_max_wait(
+        mut self,
+        duration: std::time::Duration,
+    ) -> Self {
         self.backoff_max_wait = duration;
 
         self
     }
 
-    /// How long a connection should be healthy before backoff is reset. Defaults to 45 seconds.
-    pub fn set_backoff_healthy_after(mut self, duration: std::time::Duration) -> Self {
+    /// How long a connection should be healthy before backoff is reset.
+    /// Defaults to 45 seconds.
+    pub fn set_backoff_healthy_after(
+        mut self,
+        duration: std::time::Duration,
+    ) -> Self {
         self.backoff_healthy_after = duration;
 
         self
     }
 
     /// Connection compression options. Defaults to no compression.
-    pub fn set_compression(mut self, compression: NSQConfigSharedCompression) -> Self {
+    pub fn set_compression(
+        mut self,
+        compression: NSQConfigSharedCompression,
+    ) -> Self {
         self.compression = Some(compression);
 
         self
     }
 
-    /// Credentials to send NSQD if authentication is requried. Defaults to no credentials.
+    /// Credentials to send NSQD if authentication is requried. Defaults to no
+    /// credentials.
     pub fn set_credentials(mut self, credentials: Vec<u8>) -> Self {
         self.credentials = Some(credentials);
 
@@ -141,21 +155,29 @@ impl NSQConfigShared {
 
     /// Timeout for socket write operations. Defaults to 10 seconds.
     /// Setting the duration to `None` disables write timeouts.
-    pub fn set_write_timeout(mut self, duration: Option<std::time::Duration>) -> Self {
+    pub fn set_write_timeout(
+        mut self,
+        duration: Option<std::time::Duration>,
+    ) -> Self {
         self.write_timeout = duration;
 
         self
     }
 
-    /// Timeout for socket read operations. Defaults to 60 seconds. Must be greater than the
-    /// heartbeat interval. Setting the duration to `None` disables read timeouts.
-    pub fn set_read_timeout(mut self, duration: Option<std::time::Duration>) -> Self {
+    /// Timeout for socket read operations. Defaults to 60 seconds. Must be
+    /// greater than the heartbeat interval. Setting the duration to `None`
+    /// disables read timeouts.
+    pub fn set_read_timeout(
+        mut self,
+        duration: Option<std::time::Duration>,
+    ) -> Self {
         self.read_timeout = duration;
 
         self
     }
 
-    /// The hostname sent to NSQD. Defaults to the hostname provided by the operating system.
+    /// The hostname sent to NSQD. Defaults to the hostname provided by the
+    /// operating system.
     pub fn set_hostname<S: Into<String>>(mut self, hostname: S) -> Self {
         self.hostname = Some(hostname.into());
 
@@ -177,7 +199,8 @@ impl Default for NSQConfigShared {
 }
 
 lazy_static! {
-    static ref NAMEREGEX: Regex = Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
+    static ref NAMEREGEX: Regex =
+        Regex::new(r"^[\.a-zA-Z0-9_-]+(#ephemeral)?$").unwrap();
 }
 
 fn is_valid_name(name: &str) -> bool {
@@ -191,18 +214,17 @@ fn is_valid_name(name: &str) -> bool {
 /// A smart constructor validating an NSQ topic name
 #[derive(Clone, Debug)]
 pub struct NSQTopic {
-    pub(crate) topic: String
+    pub(crate) topic: String,
 }
 
 impl NSQTopic {
-    /// Must match the regex `^[\.a-zA-Z0-9_-]+(#ephemeral)?$` and have length > 0 && < 65.
+    /// Must match the regex `^[\.a-zA-Z0-9_-]+(#ephemeral)?$` and have length >
+    /// 0 && < 65.
     pub fn new<S: Into<String>>(topic: S) -> Option<Arc<Self>> {
         let topic = topic.into();
 
         if is_valid_name(&topic) {
-            Some(Arc::new(Self{
-                topic
-            }))
+            Some(Arc::new(Self { topic }))
         } else {
             None
         }
@@ -212,18 +234,17 @@ impl NSQTopic {
 /// A smart constructor validating an NSQ channel name
 #[derive(Clone, Debug)]
 pub struct NSQChannel {
-    pub(crate) channel: String
+    pub(crate) channel: String,
 }
 
 impl NSQChannel {
-    /// Must match the regex `^[\.a-zA-Z0-9_-]+(#ephemeral)?$` and have length > 0 && < 65.
+    /// Must match the regex `^[\.a-zA-Z0-9_-]+(#ephemeral)?$` and have length >
+    /// 0 && < 65.
     pub fn new<S: Into<String>>(channel: S) -> Option<Arc<Self>> {
         let channel = channel.into();
 
         if is_valid_name(&channel) {
-            Some(Arc::new(Self{
-                channel
-            }))
+            Some(Arc::new(Self { channel }))
         } else {
             None
         }
@@ -233,7 +254,7 @@ impl NSQChannel {
 /// A smart constructor validating an NSQ sample rate
 #[derive(Clone, Debug, Copy)]
 pub struct NSQSampleRate {
-    pub(crate) rate: u8
+    pub(crate) rate: u8,
 }
 
 impl NSQSampleRate {
@@ -253,10 +274,10 @@ impl NSQSampleRate {
 
 #[derive(Clone)]
 pub struct NSQDConfig {
-    pub address:            String,
-    pub subscribe:          Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
-    pub shared:             NSQConfigShared,
-    pub sample_rate:        Option<NSQSampleRate>,
-    pub max_requeue_delay:  std::time::Duration,
+    pub address: String,
+    pub subscribe: Option<(Arc<NSQTopic>, Arc<NSQChannel>)>,
+    pub shared: NSQConfigShared,
+    pub sample_rate: Option<NSQSampleRate>,
+    pub max_requeue_delay: std::time::Duration,
     pub base_requeue_delay: std::time::Duration,
 }

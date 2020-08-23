@@ -12,19 +12,19 @@ pub fn read_u24_le(slice: &[u8]) -> u32 {
 }
 
 const MAX_COMPRESS_BLOCK_SIZE: usize = 76490;
-const MAX_BLOCK_SIZE: usize          = 1 << 16;
+const MAX_BLOCK_SIZE: usize = 1 << 16;
 
 // end section
 
 pub struct NSQSnappyInflate<S> {
-    inner:         S,
-    input_buffer:  Vec<u8>,
+    inner: S,
+    input_buffer: Vec<u8>,
     output_buffer: Vec<u8>,
-    input_start:   usize,
-    input_end:     usize,
-    output_start:  usize,
-    output_end:    usize,
-    decoder:       snap::read::FrameDecoder<std::io::Cursor<Vec<u8>>>,
+    input_start: usize,
+    input_end: usize,
+    output_start: usize,
+    output_end: usize,
+    decoder: snap::read::FrameDecoder<std::io::Cursor<Vec<u8>>>,
 }
 
 impl<S> NSQSnappyInflate<S> {
@@ -33,13 +33,13 @@ impl<S> NSQSnappyInflate<S> {
         let cursor = std::io::Cursor::new(output_buffer);
 
         NSQSnappyInflate {
-            input_buffer:  vec![0; MAX_COMPRESS_BLOCK_SIZE],
+            input_buffer: vec![0; MAX_COMPRESS_BLOCK_SIZE],
             output_buffer: vec![0; MAX_BLOCK_SIZE],
-            decoder:       snap::read::FrameDecoder::new(cursor),
-            input_start:   0,
-            input_end:     0,
-            output_start:  0,
-            output_end:    0,
+            decoder: snap::read::FrameDecoder::new(cursor),
+            input_start: 0,
+            input_end: 0,
+            output_start: 0,
+            output_end: 0,
             inner,
         }
     }
@@ -50,24 +50,28 @@ impl<S> NSQSnappyInflate<S> {
 }
 
 impl<S> AsyncRead for NSQSnappyInflate<S>
-    where S: AsyncRead + Unpin
+where
+    S: AsyncRead + Unpin,
 {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx:       &mut Context,
-        buf:      &mut [u8]
-    ) -> Poll<Result<usize>>
-    {
+        cx: &mut Context,
+        buf: &mut [u8],
+    ) -> Poll<Result<usize>> {
         let this = &mut *self;
 
         let input_len = std::cmp::min(buf.len(), MAX_BLOCK_SIZE);
 
         loop {
             if this.output_start != this.output_end {
-                let count = std::cmp::min(input_len, this.output_end - this.output_start);
+                let count = std::cmp::min(
+                    input_len,
+                    this.output_end - this.output_start,
+                );
 
                 buf[..count].clone_from_slice(
-                    &this.output_buffer[this.output_start..this.output_start + count]
+                    &this.output_buffer
+                        [this.output_start..this.output_start + count],
                 );
 
                 this.output_start += count;
@@ -76,11 +80,13 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
             }
 
             this.output_start = 0;
-            this.output_end   = 0;
+            this.output_end = 0;
 
             if this.input_end < 4 {
                 match AsyncRead::poll_read(
-                    Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..4]
+                    Pin::new(&mut this.inner),
+                    cx,
+                    &mut this.input_buffer[this.input_end..4],
                 ) {
                     Poll::Ready(Ok(0)) => {
                         return Poll::Ready(Ok(0));
@@ -89,13 +95,13 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
                         debug_assert!(n <= 4);
 
                         this.input_end += n;
-                    },
+                    }
                     Poll::Ready(Err(err)) => {
                         return Poll::Ready(Err(err));
-                    },
+                    }
                     Poll::Pending => {
                         return Poll::Pending;
-                    },
+                    }
                 }
 
                 continue;
@@ -103,23 +109,24 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
 
             let len: usize = read_u24_le(&this.input_buffer[1..]) as usize;
 
-
             if this.input_end < len + 4 {
                 match AsyncRead::poll_read(
-                    Pin::new(&mut this.inner), cx, &mut this.input_buffer[this.input_end..len + 4]
+                    Pin::new(&mut this.inner),
+                    cx,
+                    &mut this.input_buffer[this.input_end..len + 4],
                 ) {
                     Poll::Ready(Ok(0)) => {
                         return Poll::Ready(Ok(0));
                     }
                     Poll::Ready(Ok(n)) => {
                         this.input_end += n;
-                    },
+                    }
                     Poll::Ready(Err(err)) => {
                         return Poll::Ready(Err(err));
-                    },
+                    }
                     Poll::Pending => {
                         return Poll::Pending;
-                    },
+                    }
                 }
 
                 continue;
@@ -129,23 +136,25 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
 
             let wrote = std::io::Write::write(
                 &mut this.decoder.get_mut(),
-                &this.input_buffer[..len + 4]
+                &this.input_buffer[..len + 4],
             )?;
 
             debug_assert!(wrote == len + 4);
 
             this.decoder.get_mut().set_position(0);
 
-            this.input_end    = 0;
+            this.input_end = 0;
             this.output_start = 0;
-            this.output_end   = 0;
+            this.output_end = 0;
 
             let decoded = std::io::Read::read(
                 &mut this.decoder,
                 &mut this.output_buffer[this.output_end..],
             )?;
 
-            debug_assert!(this.decoder.get_ref().position() == (len + 4) as u64);
+            debug_assert!(
+                this.decoder.get_ref().position() == (len + 4) as u64
+            );
 
             this.output_end += decoded;
         }
@@ -153,12 +162,12 @@ impl<S> AsyncRead for NSQSnappyInflate<S>
 }
 
 pub struct NSQSnappyDeflate<S> {
-    inner:         S,
-    initial:       bool,
+    inner: S,
+    initial: bool,
     output_buffer: Vec<u8>,
-    output_start:  usize,
-    output_end:    usize,
-    encoder:       snap::write::FrameEncoder<std::io::Cursor<Vec<u8>>>
+    output_start: usize,
+    output_end: usize,
+    encoder: snap::write::FrameEncoder<std::io::Cursor<Vec<u8>>>,
 }
 
 impl<S> NSQSnappyDeflate<S> {
@@ -167,11 +176,11 @@ impl<S> NSQSnappyDeflate<S> {
         let cursor = std::io::Cursor::new(output_buffer);
 
         NSQSnappyDeflate {
-            initial:       true,
+            initial: true,
             output_buffer: vec![0; MAX_COMPRESS_BLOCK_SIZE],
-            output_start:  0,
-            output_end:    0,
-            encoder:       snap::write::FrameEncoder::new(cursor),
+            output_start: 0,
+            output_end: 0,
+            encoder: snap::write::FrameEncoder::new(cursor),
             inner,
         }
     }
@@ -182,14 +191,14 @@ impl<S> NSQSnappyDeflate<S> {
 }
 
 impl<S> AsyncWrite for NSQSnappyDeflate<S>
-    where S: AsyncWrite + Unpin
+where
+    S: AsyncWrite + Unpin,
 {
     fn poll_write(
         mut self: Pin<&mut Self>,
-        cx:       &mut Context,
-        buf:      &[u8]
-    ) -> Poll<Result<usize>>
-    {
+        cx: &mut Context,
+        buf: &[u8],
+    ) -> Poll<Result<usize>> {
         let this = &mut *self;
 
         if buf.is_empty() {
@@ -203,7 +212,8 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
                 match AsyncWrite::poll_write(
                     Pin::new(&mut this.inner),
                     cx,
-                    &this.encoder.get_mut().get_mut()[this.output_start..this.output_end]
+                    &this.encoder.get_mut().get_mut()
+                        [this.output_start..this.output_end],
                 ) {
                     Poll::Ready(Ok(0)) => {
                         return Poll::Ready(Ok(0));
@@ -216,20 +226,20 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
                         } else {
                             return Poll::Ready(Ok(input_len));
                         }
-                    },
+                    }
                     Poll::Ready(Err(err)) => {
                         return Poll::Ready(Err(err));
-                    },
+                    }
                     Poll::Pending => {
                         return Poll::Pending;
-                    },
+                    }
                 }
             }
 
             this.encoder.get_mut().set_position(0);
 
             this.output_start = 0;
-            this.output_end   = 0;
+            this.output_end = 0;
 
             std::io::Write::write(&mut this.encoder, &buf[0..input_len])?;
 
@@ -241,19 +251,14 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
         }
     }
 
-    fn poll_flush(
-        self: Pin<&mut Self>,
-        _cx:  &mut Context,
-    ) -> Poll<Result<()>>
-    {
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<()>> {
         Poll::Ready(Ok(()))
     }
 
     fn poll_shutdown(
         mut self: Pin<&mut Self>,
-        cx:       &mut Context,
-    ) -> Poll<Result<()>>
-    {
+        cx: &mut Context,
+    ) -> Poll<Result<()>> {
         AsyncWrite::poll_shutdown(Pin::new(&mut self.inner), cx)
     }
 }
@@ -262,12 +267,12 @@ impl<S> AsyncWrite for NSQSnappyDeflate<S>
 mod test {
     use super::*;
     use ::std::io::Cursor;
-    use ::tokio::io::AsyncWriteExt;
     use ::tokio::io::AsyncReadExt;
+    use ::tokio::io::AsyncWriteExt;
 
     #[tokio::test]
     async fn test_snappy_identity_small() {
-        let buffer_read: Vec<u8>  = Vec::new();
+        let buffer_read: Vec<u8> = Vec::new();
         let buffer_write: Vec<u8> = Vec::new();
 
         let mut reader = NSQSnappyInflate::new(Cursor::new(buffer_read));
@@ -279,9 +284,10 @@ mod test {
 
         reader.get_mut().get_mut().resize(position, 0);
 
-        reader.get_mut().get_mut().clone_from_slice(
-            &writer.get_mut().get_mut()[0..position]
-        );
+        reader
+            .get_mut()
+            .get_mut()
+            .clone_from_slice(&writer.get_mut().get_mut()[0..position]);
 
         writer.get_mut().set_position(0);
 
@@ -295,7 +301,7 @@ mod test {
 
     #[tokio::test]
     async fn test_snappy_identity_large() {
-        let buffer_read: Vec<u8>  = Vec::new();
+        let buffer_read: Vec<u8> = Vec::new();
         let buffer_write: Vec<u8> = Vec::new();
 
         let mut reader = NSQSnappyInflate::new(Cursor::new(buffer_read));
@@ -310,9 +316,10 @@ mod test {
 
         reader.get_mut().get_mut().resize(position, 0);
 
-        reader.get_mut().get_mut().clone_from_slice(
-            &writer.get_mut().get_mut()[0..position]
-        );
+        reader
+            .get_mut()
+            .get_mut()
+            .clone_from_slice(&writer.get_mut().get_mut()[0..position]);
 
         writer.get_mut().set_position(0);
 
