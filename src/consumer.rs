@@ -398,28 +398,21 @@ impl NSQConsumer {
             }
             NSQConsumerConfigSources::Lookup(lookup_config) => {
                 for node in lookup_config.addresses.iter() {
-                    let clients_ref_dupe = pool.clients_ref.clone();
-                    let from_connections_tx_dupe = from_connections_tx.clone();
-                    let config_dupe = config.clone();
-                    let address_dupe = node.clone();
                     let (shutdown_tx, shutdown_rx) =
                         tokio::sync::oneshot::channel();
-                    let poll_interval_dupe = lookup_config.poll_interval;
 
                     pool.oneshots.push(shutdown_tx);
 
+                    let supervisor_future = lookup_supervisor(
+                        node.clone(),
+                        lookup_config.poll_interval,
+                        config.clone(),
+                        pool.clients_ref.clone(),
+                        from_connections_tx.clone()
+                    );
+
                     tokio::spawn(async move {
-                        with_stopper(
-                            shutdown_rx,
-                            lookup_supervisor(
-                                address_dupe,
-                                poll_interval_dupe,
-                                config_dupe,
-                                clients_ref_dupe,
-                                from_connections_tx_dupe,
-                            ),
-                        )
-                        .await;
+                        with_stopper(shutdown_rx, supervisor_future).await;
                     });
                 }
             }
