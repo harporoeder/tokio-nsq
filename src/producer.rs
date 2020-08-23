@@ -1,7 +1,9 @@
-use super::*;
+use ::std::sync::Arc;
+use ::core::result::Result;
+use ::failure::Error;
 
-use connection::*;
-use connection_config::*;
+use crate::connection::*;
+use crate::connection_config::*;
 
 /// Configuration object for an NSQ consumer
 pub struct NSQProducerConfig {

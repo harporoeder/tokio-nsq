@@ -1,7 +1,7 @@
 use super::*;
 use connection_config::*;
 
-use std::sync::atomic::{AtomicU64, AtomicU16};
+use ::std::sync::atomic::{AtomicU64, AtomicU16};
 use tokio_rustls::webpki::DNSNameRef;
 use rustls::*;
 use tokio_rustls::{ TlsConnector, rustls::ClientConfig };
@@ -11,9 +11,9 @@ use crate::backoff::backoff::Backoff;
 use std::time::{Instant};
 use async_compression::tokio_02::bufread::DeflateDecoder;
 
-use snappy::*;
-use deflate::*;
-use with_stopper::with_stopper;
+use crate::snappy::*;
+use crate::deflate::*;
+use crate::with_stopper::with_stopper;
 
 #[derive(Debug, Fail)]
 struct NoneError;

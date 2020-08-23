@@ -1,11 +1,9 @@
-extern crate snap;
-
-use core::task::Context;
-use core::task::Poll;
-use std::pin::Pin;
-use crate::tokio::io::AsyncRead;
-use crate::tokio::io::AsyncWrite;
-use tokio::io::Result;
+use ::core::task::Context;
+use ::core::task::Poll;
+use ::std::pin::Pin;
+use ::tokio::io::AsyncRead;
+use ::tokio::io::AsyncWrite;
+use ::tokio::io::Result;
 
 // start section copied from https://github.com/BurntSushi/rust-snappy
 

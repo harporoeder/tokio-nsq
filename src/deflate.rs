@@ -1,11 +1,9 @@
-extern crate async_compression;
-
-use std::pin::Pin;
-use crate::tokio::io::AsyncWrite;
-use core::task::Context;
-use core::task::Poll;
-use tokio::io::Result;
-use async_compression::tokio_02::write::DeflateEncoder;
+use ::std::pin::Pin;
+use ::tokio::io::AsyncWrite;
+use ::core::task::Context;
+use ::core::task::Poll;
+use ::tokio::io::Result;
+use ::async_compression::tokio_02::write::DeflateEncoder;
 
 pub struct NSQInflateCompress<S> {
     encoder: DeflateEncoder<S>,
