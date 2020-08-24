@@ -484,6 +484,8 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
     match message {
         MessageToNSQ::NOP => {
             write_nop(stream).await?;
+            // nop is used as a response to heartbeats so lets instantly flush
+            stream.flush().await?;
         }
         MessageToNSQ::PUB(topic, body) => {
             write_pub(stream, topic, &body).await?;
@@ -679,6 +681,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     stream.write_all(b"IDENTIFY\n").await?;
     stream.write_all(&count).await?;
     stream.write_all(serialized.as_bytes()).await?;
+    stream.flush().await?;
 
     let settings: IdentifyResponse = match read_frame_data(&mut stream).await? {
         Frame::Response(body) => serde_json::from_slice(&body)?,
@@ -818,6 +821,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
     if let Some(credentials) = &state.config.shared.credentials {
         write_auth(&mut stream_tx, credentials).await?;
+        stream_tx.flush().await?;
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(_body) => {}
