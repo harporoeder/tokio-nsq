@@ -122,6 +122,7 @@ pub struct NSQMessage {
     pub id: [u8; 16],
     pub timestamp: u64,
 }
+
 /// An event from an NSQ connection. Includes connection status updates, errors,
 /// and actual NSQ messages.
 #[derive(Debug)]
