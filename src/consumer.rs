@@ -408,7 +408,7 @@ impl NSQConsumer {
                         lookup_config.poll_interval,
                         config.clone(),
                         pool.clients_ref.clone(),
-                        from_connections_tx.clone()
+                        from_connections_tx.clone(),
                     );
 
                     tokio::spawn(async move {

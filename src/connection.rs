@@ -236,7 +236,7 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
 
     if frame_size < 4 {
         return Err(Error::from(ProtocolError {
-            message: "frame_size less than 4 bytes".to_string()
+            message: "frame_size less than 4 bytes".to_string(),
         }));
     }
 
@@ -343,6 +343,7 @@ async fn write_fin<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"FIN ").await?;
     stream.write_all(&id).await?;
     stream.write_all(b"\n").await?;
+
     Ok(())
 }
 
@@ -353,6 +354,7 @@ async fn write_rdy<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"RDY ").await?;
     stream.write_all(count.to_string().as_bytes()).await?;
     stream.write_all(b"\n").await?;
+
     Ok(())
 }
 
@@ -363,6 +365,7 @@ async fn write_touch<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"TOUCH ").await?;
     stream.write_all(&id).await?;
     stream.write_all(b"\n").await?;
+
     Ok(())
 }
 
@@ -374,6 +377,100 @@ async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
     let count = u32::try_from(credentials.len())?.to_be_bytes();
     stream.write_all(&count).await?;
     stream.write_all(&credentials).await?;
+
+    Ok(())
+}
+
+async fn write_nop<S: AsyncWrite + std::marker::Unpin>(
+    stream: &mut S,
+) -> Result<(), Error> {
+    stream.write_all(b"NOP\n").await?;
+
+    Ok(())
+}
+
+async fn write_pub<S: AsyncWrite + std::marker::Unpin>(
+    stream: &mut S,
+    topic: Arc<NSQTopic>,
+    body: &[u8],
+) -> Result<(), Error> {
+    stream.write_all(b"PUB ").await?;
+    stream.write_all(topic.topic.as_bytes()).await?;
+    stream.write_all(b"\n").await?;
+    let count = u32::try_from(body.len())?.to_be_bytes();
+    stream.write_all(&count).await?;
+    stream.write_all(&body).await?;
+
+    Ok(())
+}
+
+async fn write_dpub<S: AsyncWrite + std::marker::Unpin>(
+    stream: &mut S,
+    topic: Arc<NSQTopic>,
+    body: &[u8],
+    delay: u32,
+) -> Result<(), Error> {
+    stream.write_all(b"DPUB ").await?;
+    stream.write_all(topic.topic.as_bytes()).await?;
+    stream.write_all(b" ").await?;
+    stream.write_all(delay.to_string().as_bytes()).await?;
+    stream.write_all(b"\n").await?;
+    let count = u32::try_from(body.len())?.to_be_bytes();
+    stream.write_all(&count).await?;
+    stream.write_all(&body).await?;
+
+    Ok(())
+}
+
+async fn write_mpub<S: AsyncWrite + std::marker::Unpin>(
+    stream: &mut S,
+    topic: Arc<NSQTopic>,
+    messages: Vec<Vec<u8>>,
+) -> Result<(), Error> {
+    let body_bytes = messages.iter().fold(0, |sum, x| 4 + sum + x.len()) + 4;
+
+    stream.write_all(b"MPUB ").await?;
+    stream.write_all(topic.topic.as_bytes()).await?;
+    stream.write_all(b"\n").await?;
+    let body_bytes = u32::try_from(body_bytes)?.to_be_bytes();
+    stream.write_all(&body_bytes).await?;
+    let count = u32::try_from(messages.len())?.to_be_bytes();
+    stream.write_all(&count).await?;
+
+    for message in messages.iter() {
+        let message_size = u32::try_from(message.len())?.to_be_bytes();
+        stream.write_all(&message_size).await?;
+        stream.write_all(&message).await?;
+    }
+
+    Ok(())
+}
+
+async fn write_sub<S: AsyncWrite + std::marker::Unpin>(
+    stream: &mut S,
+    topic: Arc<NSQTopic>,
+    channel: Arc<NSQChannel>,
+) -> Result<(), Error> {
+    stream.write_all(b"SUB ").await?;
+    stream.write_all(topic.topic.as_bytes()).await?;
+    stream.write_all(b" ").await?;
+    stream.write_all(channel.channel.as_bytes()).await?;
+    stream.write_all(b"\n").await?;
+
+    Ok(())
+}
+
+async fn write_req<S: AsyncWrite + std::marker::Unpin>(
+    stream: &mut S,
+    id: &[u8],
+    count: u128,
+) -> Result<(), Error> {
+    stream.write_all(b"REQ ").await?;
+    stream.write_all(&id).await?;
+    stream.write_all(b" \n").await?;
+    stream.write_all(count.to_string().as_bytes()).await?;
+    stream.write_all(b"\n").await?;
+
     Ok(())
 }
 
@@ -385,56 +482,19 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
 ) -> Result<(), Error> {
     match message {
         MessageToNSQ::NOP => {
-            stream.write_all(b"NOP\n").await?;
+            write_nop(stream).await?;
         }
         MessageToNSQ::PUB(topic, body) => {
-            stream.write_all(b"PUB ").await?;
-            stream.write_all(topic.topic.as_bytes()).await?;
-            stream.write_all(b"\n").await?;
-
-            let count = u32::try_from(body.len())?.to_be_bytes();
-
-            stream.write_all(&count).await?;
-            stream.write_all(&body).await?;
+            write_pub(stream, topic, &body).await?;
         }
         MessageToNSQ::DPUB(topic, body, delay) => {
-            stream.write_all(b"DPUB ").await?;
-            stream.write_all(topic.topic.as_bytes()).await?;
-            stream.write_all(b" ").await?;
-            stream.write_all(delay.to_string().as_bytes()).await?;
-            stream.write_all(b"\n").await?;
-
-            let count = u32::try_from(body.len())?.to_be_bytes();
-
-            stream.write_all(&count).await?;
-            stream.write_all(&body).await?;
+            write_dpub(stream, topic, &body, delay).await?;
         }
         MessageToNSQ::MPUB(topic, messages) => {
-            let body_bytes =
-                messages.iter().fold(0, |sum, x| 4 + sum + x.len()) + 4;
-
-            stream.write_all(b"MPUB ").await?;
-            stream.write_all(topic.topic.as_bytes()).await?;
-            stream.write_all(b"\n").await?;
-
-            let body_bytes = u32::try_from(body_bytes)?.to_be_bytes();
-            stream.write_all(&body_bytes).await?;
-
-            let count = u32::try_from(messages.len())?.to_be_bytes();
-            stream.write_all(&count).await?;
-
-            for message in messages.iter() {
-                let message_size = u32::try_from(message.len())?.to_be_bytes();
-                stream.write_all(&message_size).await?;
-                stream.write_all(&message).await?;
-            }
+            write_mpub(stream, topic, messages).await?;
         }
         MessageToNSQ::SUB(topic, channel) => {
-            stream.write_all(b"SUB ").await?;
-            stream.write_all(topic.topic.as_bytes()).await?;
-            stream.write_all(b" ").await?;
-            stream.write_all(channel.channel.as_bytes()).await?;
-            stream.write_all(b"\n").await?;
+            write_sub(stream, topic, channel).await?;
         }
         MessageToNSQ::RDY(requested_ready) => {
             if requested_ready != shared.current_ready.load(Ordering::SeqCst) {
@@ -449,6 +509,7 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
                 };
 
                 write_rdy(stream, actual_ready).await?;
+
                 shared.current_ready.store(actual_ready, Ordering::SeqCst);
             }
         }
@@ -474,11 +535,7 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
                 NSQRequeueDelay::CustomDelay(duration) => duration.as_millis(),
             };
 
-            stream.write_all(b"REQ ").await?;
-            stream.write_all(&id).await?;
-            stream.write_all(b" \n").await?;
-            stream.write_all(count.to_string().as_bytes()).await?;
-            stream.write_all(b"\n").await?;
+            write_req(stream, &id, count).await?;
         }
     }
 
