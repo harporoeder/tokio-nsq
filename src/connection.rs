@@ -1,4 +1,5 @@
 use ::async_compression::tokio_02::bufread::DeflateDecoder;
+use ::async_compression::tokio_02::write::DeflateEncoder;
 use ::backoff::backoff::Backoff;
 use ::failure::Error;
 use ::failure::Fail;
@@ -18,7 +19,6 @@ use ::tokio_rustls::{rustls::ClientConfig, TlsConnector};
 
 use crate::built_info;
 use crate::connection_config::*;
-use crate::deflate::*;
 use crate::snappy::*;
 use crate::with_stopper::with_stopper;
 
@@ -551,10 +551,19 @@ async fn handle_commands<S: AsyncWrite + std::marker::Unpin>(
     to_connection_rx: &mut tokio::sync::mpsc::UnboundedReceiver<MessageToNSQ>,
     stream: &mut S,
 ) -> Result<(), Error> {
-    loop {
-        let message = to_connection_rx.recv().await.ok_or(NoneError)?;
+    let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
 
-        handle_single_command(config, shared, message, stream).await?;
+    loop {
+        tokio::select! {
+            message = to_connection_rx.recv() => {
+                let message = message.ok_or(NoneError)?;
+
+                handle_single_command(config, shared, message, stream).await?;
+            },
+            _ = interval.tick() => {
+                stream.flush().await?;
+            }
+        }
     }
 }
 
@@ -578,6 +587,8 @@ async fn run_generic<
             &mut stream_tx,
         )
         .await?;
+
+        stream_tx.flush().await?;
 
         match read_frame_data(&mut stream_rx).await? {
             Frame::Response(body) => {
@@ -762,7 +773,12 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         if let Some(NSQConfigSharedCompression::Deflate(level)) =
             &state.config.shared.compression
         {
-            let stream_tx = NSQInflateCompress::new(stream_tx, level.get());
+            //let stream_tx = NSQInflateCompress::new(stream_tx, level.get());
+
+            let stream_tx = DeflateEncoder::with_quality(
+                stream_tx,
+                async_compression::Level::Precise(level.get() as u32),
+            );
 
             let mut stream_rx = tokio::io::BufReader::new(DeflateDecoder::new(
                 tokio::io::BufReader::new(stream_rx),

@@ -41,7 +41,6 @@ extern crate matches;
 mod connection;
 mod connection_config;
 mod consumer;
-mod deflate;
 mod producer;
 mod snappy;
 mod with_stopper;
