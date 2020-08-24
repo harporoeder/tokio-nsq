@@ -30,6 +30,12 @@
 //! message.finish();
 //! # }
 //! ```
+//!
+//! ## Logging
+//! Logging for Tokio NSQ is done via the common [log](https://crates.io/crates/log) facade.
+//! If you desire logs from Tokio NSQ you must integrate an additional crate implementing the
+//! log API such as [env_logger](https://crates.io/crates/env_logger), or
+//! [simple-logging](https://crates.io/crates/simple-logging).
 
 #![allow(dead_code)]
 
