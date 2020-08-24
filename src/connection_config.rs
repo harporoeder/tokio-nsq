@@ -280,6 +280,7 @@ impl NSQSampleRate {
             Some(NSQSampleRate { rate })
         }
     }
+
     /// Return the sample rate
     pub fn get(&self) -> u8 {
         self.rate
