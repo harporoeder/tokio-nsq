@@ -551,7 +551,7 @@ async fn handle_commands<S: AsyncWrite + std::marker::Unpin>(
     to_connection_rx: &mut tokio::sync::mpsc::UnboundedReceiver<MessageToNSQ>,
     stream: &mut S,
 ) -> Result<(), Error> {
-    let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
+    let mut interval = tokio::time::interval(config.shared.flush_interval);
 
     loop {
         tokio::select! {
@@ -773,8 +773,6 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         if let Some(NSQConfigSharedCompression::Deflate(level)) =
             &state.config.shared.compression
         {
-            //let stream_tx = NSQInflateCompress::new(stream_tx, level.get());
-
             let stream_tx = DeflateEncoder::with_quality(
                 stream_tx,
                 async_compression::Level::Precise(level.get() as u32),

@@ -81,6 +81,7 @@ pub struct NSQConfigShared {
     pub(crate) read_timeout: Option<std::time::Duration>,
     pub(crate) hostname: Option<String>,
     pub(crate) user_agent: Option<String>,
+    pub(crate) flush_interval: std::time::Duration,
 }
 
 impl NSQConfigShared {
@@ -97,6 +98,7 @@ impl NSQConfigShared {
             read_timeout: Some(std::time::Duration::new(60, 0)),
             hostname: None,
             user_agent: None,
+            flush_interval: std::time::Duration::from_millis(250),
         }
     }
 
@@ -187,6 +189,18 @@ impl NSQConfigShared {
     /// The user agent sent to NSQD. Defaults to "tokio_nsq/package_version".
     pub fn set_user_agent<S: Into<String>>(mut self, user_agent: S) -> Self {
         self.user_agent = Some(user_agent.into());
+
+        self
+    }
+
+    /// How often the TCP write buffer should be flushed. An outgoing write
+    /// buffer substantially increases network performance, particularly in
+    /// the context of compression. Defaults to every 250 milliseconds.
+    pub fn set_flush_interval(
+        mut self,
+        duration: std::time::Duration,
+    ) -> Self {
+        self.flush_interval = duration;
 
         self
     }
