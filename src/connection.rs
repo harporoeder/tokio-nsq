@@ -870,7 +870,6 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
             Err(generic) => {
                 state.shared.healthy.store(false, Ordering::SeqCst);
                 state.shared.current_ready.store(0, Ordering::SeqCst);
-                state.shared.inflight.store(0, Ordering::SeqCst);
 
                 let _ = state.from_connection_tx.send(NSQEvent::Unhealthy());
 
