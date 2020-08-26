@@ -952,7 +952,7 @@ dependencies = [
 
 [[package]]
 name = "tokio-nsq"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "async-compression",
  "backoff",
