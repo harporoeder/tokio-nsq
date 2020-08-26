@@ -462,6 +462,20 @@ impl NSQConsumer {
             };
         }
     }
+
+    /// Indicates if any connections are blocked on processing before being able to receive more
+    /// messages. This can be useful for determining when to process a batch of messages.
+    pub fn is_starved(&mut self) -> bool {
+        let guard = self.clients_ref.lock().unwrap();
+
+        for (_, node) in guard.iter() {
+            if node.connection.is_starved() {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 impl Drop for NSQConsumer {

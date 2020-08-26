@@ -517,12 +517,16 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
             }
         }
         MessageToNSQ::FIN(id) => {
+            shared.inflight.fetch_sub(1, Ordering::SeqCst);
+
             write_fin(stream, &id).await?;
         }
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;
         }
         MessageToNSQ::REQ(id, attempt, method) => {
+            shared.inflight.fetch_sub(1, Ordering::SeqCst);
+
             let count: u128 = match method {
                 NSQRequeueDelay::NoDelay => 0,
                 NSQRequeueDelay::DefaultDelay => std::cmp::min(
@@ -866,6 +870,7 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
             Err(generic) => {
                 state.shared.healthy.store(false, Ordering::SeqCst);
                 state.shared.current_ready.store(0, Ordering::SeqCst);
+                state.shared.inflight.store(0, Ordering::SeqCst);
 
                 let _ = state.from_connection_tx.send(NSQEvent::Unhealthy());
 
@@ -1003,6 +1008,19 @@ impl NSQDConnection {
 
     pub fn healthy(&self) -> bool {
         self.shared.healthy.load(Ordering::SeqCst)
+    }
+
+    pub fn is_starved(&self) -> bool {
+        if self.shared.healthy.load(Ordering::SeqCst) {
+            let inflight = self.shared.inflight.load(Ordering::SeqCst);
+            let ready = self.shared.current_ready.load(Ordering::SeqCst);
+
+            let threshold = ((ready as f64) * 0.85) as u64;
+
+            inflight > threshold && inflight > 0
+        } else {
+            false
+        }
     }
 
     pub async fn consume(&mut self) -> Option<NSQEvent> {
