@@ -1,5 +1,5 @@
-use ::async_compression::tokio_02::bufread::DeflateDecoder;
-use ::async_compression::tokio_02::write::DeflateEncoder;
+use ::async_compression::tokio::bufread::DeflateDecoder;
+use ::async_compression::tokio::write::DeflateEncoder;
 use ::backoff::backoff::Backoff;
 use ::failure::Error;
 use ::failure::Fail;
@@ -16,6 +16,7 @@ use ::tokio::io::AsyncWrite;
 use ::tokio::io::AsyncWriteExt;
 use ::tokio_rustls::webpki::DNSNameRef;
 use ::tokio_rustls::{rustls::ClientConfig, TlsConnector};
+use ::futures_util::FutureExt;
 
 use crate::built_info;
 use crate::connection_config::*;
@@ -654,12 +655,13 @@ fn read_to_dyn<S: Send + AsyncRead + std::marker::Unpin + 'static>(
 }
 
 async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
-    let stream =
+    let mut stream =
         tokio::net::TcpStream::connect(state.config.address.clone()).await?;
 
-    let mut stream = tokio_io_timeout::TimeoutStream::new(stream);
-    stream.set_write_timeout(state.config.shared.write_timeout);
-    stream.set_read_timeout(state.config.shared.read_timeout);
+    // TODO
+    //let mut stream = tokio_io_timeout::TimeoutStream::new(stream);
+    //stream.set_write_timeout(state.config.shared.write_timeout);
+    //stream.set_read_timeout(state.config.shared.read_timeout);
 
     let hostname = match &state.config.shared.hostname {
         Some(hostname) => hostname.clone(),
@@ -896,15 +898,12 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
         let mut drained: u64 = 0;
 
         loop {
-            match state.to_connection_rx.try_recv() {
-                Ok(_) => {
+            match state.to_connection_rx.recv().now_or_never().and_then(|x| x) {
+                Some(_) => {
                     drained += 1;
                 }
-                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+                None => {
                     break;
-                }
-                Err(tokio::sync::mpsc::error::TryRecvError::Closed) => {
-                    return;
                 }
             }
         }
@@ -924,7 +923,7 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
             "run_connection_supervisor sleeping for: {}",
             sleep_for.as_secs()
         );
-        tokio::time::delay_for(sleep_for).await;
+        tokio::time::sleep(sleep_for).await;
     }
 }
 

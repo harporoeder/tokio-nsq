@@ -298,7 +298,7 @@ async fn lookup_supervisor(
             error!("lookup_supervisor unknown error {}", generic);
         }
 
-        tokio::time::delay_for(poll_interval).await;
+        tokio::time::sleep(poll_interval).await;
     }
 }
 
@@ -345,9 +345,9 @@ async fn rebalancer(
 ) {
     loop {
         if rebalancer_step(max_in_flight, &clients_ref).await {
-            tokio::time::delay_for(rebalance_interval).await;
+            tokio::time::sleep(rebalance_interval).await;
         } else {
-            tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
     }
 }

@@ -3,6 +3,7 @@ use ::core::task::Poll;
 use ::std::pin::Pin;
 use ::tokio::io::AsyncRead;
 use ::tokio::io::AsyncWrite;
+use ::tokio::io::ReadBuf;
 use ::tokio::io::Result;
 
 // start section copied from https://github.com/BurntSushi/rust-snappy
@@ -56,11 +57,11 @@ where
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context,
-        buf: &mut [u8],
-    ) -> Poll<Result<usize>> {
+        buf: &mut ReadBuf,
+    ) -> Poll<Result<()>> {
         let this = &mut *self;
 
-        let input_len = std::cmp::min(buf.len(), MAX_BLOCK_SIZE);
+        let input_len = std::cmp::min(buf.remaining(), MAX_BLOCK_SIZE);
 
         loop {
             if this.output_start != this.output_end {
@@ -69,32 +70,27 @@ where
                     this.output_end - this.output_start,
                 );
 
-                buf[..count].clone_from_slice(
-                    &this.output_buffer
-                        [this.output_start..this.output_start + count],
-                );
+                buf.put_slice(&this.output_buffer[this.output_start..this.output_start + count]);
 
                 this.output_start += count;
 
-                return Poll::Ready(Ok(count));
+                return Poll::Ready(Ok(()));
             }
 
             this.output_start = 0;
             this.output_end = 0;
 
             if this.input_end < 4 {
-                match AsyncRead::poll_read(
-                    Pin::new(&mut this.inner),
-                    cx,
-                    &mut this.input_buffer[this.input_end..4],
-                ) {
-                    Poll::Ready(Ok(0)) => {
-                        return Poll::Ready(Ok(0));
-                    }
-                    Poll::Ready(Ok(n)) => {
-                        debug_assert!(n <= 4);
-
-                        this.input_end += n;
+                let mut buf = ReadBuf::new(&mut this.input_buffer[this.input_end..4]);
+                match Pin::new(&mut this.inner).poll_read(cx, &mut buf) {
+                    Poll::Ready(Ok(())) => {
+                        let n = buf.filled().len();
+                        if n == 0 {
+                            return Poll::Ready(Ok(()));
+                        } else {
+                            debug_assert!(n <= 4);
+                            this.input_end += n;
+                        }
                     }
                     Poll::Ready(Err(err)) => {
                         return Poll::Ready(Err(err));
@@ -110,16 +106,15 @@ where
             let len: usize = read_u24_le(&this.input_buffer[1..]) as usize;
 
             if this.input_end < len + 4 {
-                match AsyncRead::poll_read(
-                    Pin::new(&mut this.inner),
-                    cx,
-                    &mut this.input_buffer[this.input_end..len + 4],
-                ) {
-                    Poll::Ready(Ok(0)) => {
-                        return Poll::Ready(Ok(0));
-                    }
-                    Poll::Ready(Ok(n)) => {
-                        this.input_end += n;
+                let mut buf = ReadBuf::new(&mut this.input_buffer[this.input_end..len + 4]);
+                match Pin::new(&mut this.inner).poll_read(cx, &mut buf) {
+                    Poll::Ready(Ok(())) => {
+                        let n = buf.filled().len();
+                        if n == 0 {
+                            return Poll::Ready(Ok(()));
+                        } else {
+                            this.input_end += n;
+                        }
                     }
                     Poll::Ready(Err(err)) => {
                         return Poll::Ready(Err(err));
