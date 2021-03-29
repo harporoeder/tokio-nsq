@@ -28,6 +28,7 @@ matches           = "0.1.8"
 async-compression = { version = "0.3.7", features = ["tokio", "deflate"] }
 tokio-io-timeout  = "^1.1"
 futures-util      = "^0.3"
+futures           = "^0.3"
 
 [dev-dependencies]
 rand       = "0.7.3"
