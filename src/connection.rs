@@ -468,7 +468,7 @@ async fn write_req<S: AsyncWrite + std::marker::Unpin>(
 ) -> Result<(), Error> {
     stream.write_all(b"REQ ").await?;
     stream.write_all(&id).await?;
-    stream.write_all(b" \n").await?;
+    stream.write_all(b" ").await?;
     stream.write_all(count.to_string().as_bytes()).await?;
     stream.write_all(b"\n").await?;
 
