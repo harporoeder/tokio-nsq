@@ -1,5 +1,5 @@
-use ::async_compression::tokio_02::bufread::DeflateDecoder;
-use ::async_compression::tokio_02::write::DeflateEncoder;
+use ::async_compression::tokio::bufread::DeflateDecoder;
+use ::async_compression::tokio::write::DeflateEncoder;
 use ::backoff::backoff::Backoff;
 use ::failure::Error;
 use ::failure::Fail;
@@ -7,15 +7,22 @@ use ::log::*;
 use ::rustls::*;
 use ::std::convert::TryFrom;
 use ::std::fmt;
+use ::std::pin::Pin;
 use ::std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 use ::std::sync::Arc;
 use ::std::time::Instant;
+use ::std::task::Poll;
+use ::tokio::io::ReadBuf;
 use ::tokio::io::AsyncRead;
 use ::tokio::io::AsyncReadExt;
 use ::tokio::io::AsyncWrite;
 use ::tokio::io::AsyncWriteExt;
+use ::tokio::time::{Sleep, sleep};
 use ::tokio_rustls::webpki::DNSNameRef;
 use ::tokio_rustls::{rustls::ClientConfig, TlsConnector};
+use ::futures_util::FutureExt;
+use ::std::time::Duration;
+use ::futures::Future;
 
 use crate::built_info;
 use crate::connection_config::*;
@@ -657,9 +664,14 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     let stream =
         tokio::net::TcpStream::connect(state.config.address.clone()).await?;
 
-    let mut stream = tokio_io_timeout::TimeoutStream::new(stream);
-    stream.set_write_timeout(state.config.shared.write_timeout);
-    stream.set_read_timeout(state.config.shared.read_timeout);
+    let mut stream = TimeoutStream::new(stream);
+    if let Some(timeout) = state.config.shared.write_timeout {
+        stream.set_write_timeout(timeout);
+    }
+
+    if let Some(timeout) = state.config.shared.read_timeout {
+        stream.set_read_timeout(timeout);
+    }
 
     let hostname = match &state.config.shared.hostname {
         Some(hostname) => hostname.clone(),
@@ -896,15 +908,12 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
         let mut drained: u64 = 0;
 
         loop {
-            match state.to_connection_rx.try_recv() {
-                Ok(_) => {
+            match state.to_connection_rx.recv().now_or_never().and_then(|x| x) {
+                Some(_) => {
                     drained += 1;
                 }
-                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+                None => {
                     break;
-                }
-                Err(tokio::sync::mpsc::error::TryRecvError::Closed) => {
-                    return;
                 }
             }
         }
@@ -924,7 +933,7 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
             "run_connection_supervisor sleeping for: {}",
             sleep_for.as_secs()
         );
-        tokio::time::delay_for(sleep_for).await;
+        tokio::time::sleep(sleep_for).await;
     }
 }
 
@@ -1055,6 +1064,120 @@ impl Drop for NSQDConnection {
         trace!("NSQDConnection::drop()");
         if let Some(shutdown_tx) = self.shutdown_tx.take() {
             let _ = shutdown_tx.send(());
+        }
+    }
+}
+
+struct TimeoutStream<S> {
+    inner: S,
+    read_timeout: Option<Duration>,
+    write_timeout: Option<Duration>,
+    read_delay: Option<Pin<Box<Sleep>>>,
+    write_delay: Option<Pin<Box<Sleep>>>,
+}
+
+impl<S> TimeoutStream<S> {
+    fn new(stream: S) -> Self {
+        Self {
+            inner: stream,
+            read_timeout: None,
+            write_timeout: None,
+            read_delay: None,
+            write_delay: None,
+        }
+    }
+
+    fn set_read_timeout(&mut self, timeout: Duration) {
+        self.read_timeout = Some(timeout);
+    }
+
+    fn set_write_timeout(&mut self, timeout: Duration) {
+        self.write_timeout = Some(timeout);
+    }
+}
+
+impl<S> AsyncRead for TimeoutStream<S>
+where
+    S: AsyncRead + Unpin
+{
+    fn poll_read(self: Pin<&mut Self>, cx: &mut std::task::Context, buf: &mut ReadBuf) -> Poll<Result<(), std::io::Error>> {
+        let mut me = Pin::into_inner(self);
+        if let Poll::Ready(_) = Pin::new(&mut me.inner).poll_read(cx, buf) {
+            me.read_delay = None;
+            return Poll::Ready(Ok(()))
+        }
+
+        if let Some(read_timeout) = me.read_timeout {
+            let delay = me.read_delay.get_or_insert_with(|| Box::pin(sleep(read_timeout)));
+
+            match delay.as_mut().poll(cx) {
+                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"))),
+                Poll::Pending => Poll::Pending,
+            }
+        } else {
+            Poll::Pending
+        }
+    }
+}
+
+impl<S> AsyncWrite for TimeoutStream<S>
+where
+    S: AsyncWrite + Unpin
+{
+    fn poll_write(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
+        let mut me = Pin::into_inner(self);
+        if let Poll::Ready(n) = Pin::new(&mut me.inner).poll_write(cx, buf) {
+            me.write_delay = None;
+            return Poll::Ready(n)
+        }
+
+        if let Some(write_timeout) = me.write_timeout {
+            let delay = me.write_delay.get_or_insert_with(|| Box::pin(sleep(write_timeout)));
+
+            match delay.as_mut().poll(cx) {
+                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"))),
+                Poll::Pending => Poll::Pending,
+            }
+        } else {
+            Poll::Pending
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), std::io::Error>> {
+        let mut me = Pin::into_inner(self);
+        if let Poll::Ready(_) = Pin::new(&mut me.inner).poll_flush(cx) {
+            me.write_delay = None;
+            return Poll::Ready(Ok(()))
+        }
+
+        if let Some(write_timeout) = me.write_timeout {
+            let delay = me.write_delay.get_or_insert_with(|| Box::pin(sleep(write_timeout)));
+
+            match delay.as_mut().poll(cx) {
+                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"))),
+                Poll::Pending => Poll::Pending,
+            }
+        } else {
+            Poll::Pending
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), std::io::Error>> {
+        let mut me = Pin::into_inner(self);
+        if let Poll::Ready(_) = Pin::new(&mut me.inner).poll_shutdown(cx) {
+            me.write_delay = None;
+            return Poll::Ready(Ok(()))
+        }
+
+        if let Some(write_timeout) = me.write_timeout {
+            let delay = me.write_delay.get_or_insert_with(|| Box::pin(sleep(write_timeout)));
+
+            match delay.as_mut().poll(cx) {
+                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"))),
+                Poll::Pending => Poll::Pending,
+            }
+        } else {
+            Poll::Pending
         }
     }
 }
