@@ -237,6 +237,10 @@ enum Frame {
     Unknown,
 }
 
+const FRAME_TYPE_RESPONSE: i32 = 0;
+const FRAME_TYPE_ERROR: i32 = 1;
+const FRAME_TYPE_MESSAGE: i32 = 2;
+
 async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
     stream: &mut S,
 ) -> Result<Frame, Error> {
@@ -249,36 +253,39 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
     }
 
     let frame_body_size = frame_size - 4;
-    let frame_type = stream.read_u32().await?;
+    let frame_type = stream.read_i32().await?;
 
     match frame_type {
-        0 => {
+        FRAME_TYPE_RESPONSE => {
             let mut frame_body = Vec::new();
             frame_body.resize(frame_body_size as usize, 0);
             stream.read_exact(&mut frame_body).await?;
 
             return Ok(Frame::Response(frame_body));
         }
-        1 => {
+        FRAME_TYPE_ERROR => {
             let mut frame_body = Vec::new();
             frame_body.resize(frame_body_size as usize, 0);
             stream.read_exact(&mut frame_body).await?;
 
-            let s = std::str::from_utf8(&frame_body)?;
+            match frame_body.as_slice() {
+                b"E_FIN_FAILED" | b"E_REQ_FAILED" | b"E_TOUCH_FAILED"  => {
+                    warn!("non fatal protocol error {:?}", frame_body);
 
-            if s == "E_FIN_FAILED" || s == "E_REQ_FAILED" || s == "E_TOUCH_FAILED" {
-                warn!("non fatal protocol error {}", s);
+                    return Ok(Frame::Error(frame_body));
+                }
+                _ => {
+                    error!("fatal protocol error = {:?}", frame_body);
 
-                return Ok(Frame::Error(frame_body));
-            } else {
-                error!("fatal protocol error = {}", s);
+                    let message = String::from_utf8(frame_body)?;
 
-                return Err(Error::from(ProtocolError {
-                    message: s.to_string(),
-                }));
+                    return Err(Error::from(ProtocolError {
+                        message,
+                    }));
+                }
             }
         }
-        2 => {
+        FRAME_TYPE_MESSAGE => {
             let message_timestamp = stream.read_u64().await?;
             let message_attempts = stream.read_u16().await?;
 
