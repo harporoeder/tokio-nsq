@@ -683,6 +683,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     if let Some(timeout) = state.config.shared.read_timeout {
         stream.set_read_timeout(timeout);
     }
+    let mut stream = tokio::io::BufReader::new(stream);
 
     let hostname = match &state.config.shared.hostname {
         Some(hostname) => hostname.clone(),
