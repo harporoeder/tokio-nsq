@@ -217,7 +217,7 @@ struct NSQDConnectionState {
 struct NSQDConnectionShared {
     healthy: AtomicBool,
     to_connection_tx_ref:
-        std::sync::Arc<tokio::sync::mpsc::UnboundedSender<MessageToNSQ>>,
+        Arc<tokio::sync::mpsc::UnboundedSender<MessageToNSQ>>,
     inflight: AtomicU64,
     current_ready: AtomicU16,
     max_ready: AtomicU16,
@@ -396,6 +396,7 @@ async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
     let count = u32::try_from(credentials.len())?.to_be_bytes();
     stream.write_all(&count).await?;
     stream.write_all(&credentials).await?;
+    stream.flush().await?;
 
     Ok(())
 }
@@ -416,8 +417,7 @@ async fn write_pub<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"PUB ").await?;
     stream.write_all(topic.topic.as_bytes()).await?;
     stream.write_all(b"\n").await?;
-    let count = u32::try_from(body.len())?.to_be_bytes();
-    stream.write_all(&count).await?;
+    stream.write_u32(u32::try_from(body.len())?).await?;
     stream.write_all(&body).await?;
 
     Ok(())
@@ -434,8 +434,7 @@ async fn write_dpub<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b" ").await?;
     stream.write_all(delay.to_string().as_bytes()).await?;
     stream.write_all(b"\n").await?;
-    let count = u32::try_from(body.len())?.to_be_bytes();
-    stream.write_all(&count).await?;
+    stream.write_u32(u32::try_from(body.len())?).await?;
     stream.write_all(&body).await?;
 
     Ok(())
@@ -495,7 +494,7 @@ async fn write_req<S: AsyncWrite + std::marker::Unpin>(
 
 async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
     config: &NSQDConfig,
-    shared: &Arc<NSQDConnectionShared>,
+    shared: &NSQDConnectionShared,
     message: MessageToNSQ,
     stream: &mut S,
 ) -> Result<(), Error> {
@@ -530,14 +529,18 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
                 };
 
                 write_rdy(stream, actual_ready).await?;
+                stream.flush().await?;
 
                 shared.current_ready.store(actual_ready, Ordering::SeqCst);
             }
         }
         MessageToNSQ::FIN(id) => {
-            shared.inflight.fetch_sub(1, Ordering::SeqCst);
+            let before = shared.inflight.fetch_sub(1, Ordering::SeqCst);
 
             write_fin(stream, &id).await?;
+            if before == 1 {
+                stream.flush().await?;
+            }
         }
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;
@@ -569,7 +572,7 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
 
 async fn handle_commands<S: AsyncWrite + std::marker::Unpin>(
     config: &NSQDConfig,
-    shared: &Arc<NSQDConnectionShared>,
+    shared: &NSQDConnectionShared,
     to_connection_rx: &mut tokio::sync::mpsc::UnboundedReceiver<MessageToNSQ>,
     stream: &mut S,
 ) -> Result<(), Error> {
@@ -683,7 +686,8 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
     if let Some(timeout) = state.config.shared.read_timeout {
         stream.set_read_timeout(timeout);
     }
-    let mut stream = tokio::io::BufReader::new(stream);
+    let stream = tokio::io::BufReader::new(stream);
+    let mut stream = tokio::io::BufWriter::new(stream);
 
     let hostname = match &state.config.shared.hostname {
         Some(hostname) => hostname.clone(),

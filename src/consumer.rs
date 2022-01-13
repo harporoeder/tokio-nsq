@@ -304,8 +304,7 @@ async fn lookup_supervisor(
 
 async fn rebalancer_step(
     max_in_flight: u32,
-    clients_ref: &std::sync::RwLock<HashMap<String, NSQConnectionMeta>,
-    >,
+    clients_ref: &std::sync::RwLock<HashMap<String, NSQConnectionMeta>>,
 ) -> bool {
     let guard = clients_ref.read().unwrap();
 
