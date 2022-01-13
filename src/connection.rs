@@ -1048,7 +1048,7 @@ impl NSQDConnection {
     }
 
     pub fn queue_message(
-        &mut self,
+        &self,
         message: MessageToNSQ,
     ) -> Result<(), Error> {
         if self.shared.healthy.load(Ordering::SeqCst) {

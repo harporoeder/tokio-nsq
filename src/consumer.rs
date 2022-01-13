@@ -243,7 +243,7 @@ async fn lookup(
                 None => {
                     info!("new producer: {}", address);
 
-                    let mut client = NSQDConnection::new_with_queue(
+                    let client = NSQDConnection::new_with_queue(
                         NSQDConfig {
                             address: address.clone(),
                             shared: config.shared.clone(),
@@ -308,13 +308,13 @@ async fn rebalancer_step(
         std::sync::Mutex<HashMap<String, NSQConnectionMeta>>,
     >,
 ) -> bool {
-    let mut guard = clients_ref.lock().unwrap();
+    let guard = clients_ref.lock().unwrap();
 
     let mut healthy = Vec::new();
 
-    for (_, node) in guard.iter_mut() {
+    for (_, node) in guard.iter() {
         if node.connection.healthy() {
-            healthy.push(&mut node.connection);
+            healthy.push(&node.connection);
         }
     }
 
@@ -326,7 +326,7 @@ async fn rebalancer_step(
 
     let partial = if partial == 0 { 1 } else { partial };
 
-    for node in healthy.iter_mut() {
+    for node in &healthy {
         let _ = NSQDConnection::queue_message(
             *node,
             MessageToNSQ::RDY(partial as u16),
