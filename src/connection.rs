@@ -261,7 +261,7 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
             frame_body.resize(frame_body_size as usize, 0);
             stream.read_exact(&mut frame_body).await?;
 
-            return Ok(Frame::Response(frame_body));
+            Ok(Frame::Response(frame_body))
         }
         FRAME_TYPE_ERROR => {
             let mut frame_body = Vec::new();
@@ -272,16 +272,16 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
                 b"E_FIN_FAILED" | b"E_REQ_FAILED" | b"E_TOUCH_FAILED"  => {
                     warn!("non fatal protocol error {:?}", frame_body);
 
-                    return Ok(Frame::Error(frame_body));
+                    Ok(Frame::Error(frame_body))
                 }
                 _ => {
                     error!("fatal protocol error = {:?}", frame_body);
 
                     let message = String::from_utf8(frame_body)?;
 
-                    return Err(Error::from(ProtocolError {
+                    Err(Error::from(ProtocolError {
                         message,
-                    }));
+                    }))
                 }
             }
         }
@@ -297,19 +297,18 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
             message_body.resize(body_size as usize, 0);
             stream.read_exact(&mut message_body).await?;
 
-            return Ok(Frame::Message(FrameMessage {
+            Ok(Frame::Message(FrameMessage {
                 timestamp: message_timestamp,
                 attempt: message_attempts,
                 id: message_id,
                 body: message_body,
-            }));
+            }))
         }
         _ => {
             error!("frame_type unknown = {}", frame_type);
+            Ok(Frame::Unknown)
         }
     }
-
-    Ok(Frame::Unknown)
 }
 
 async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
