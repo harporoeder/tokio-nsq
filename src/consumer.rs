@@ -176,7 +176,7 @@ struct NSQConnectionMeta {
 pub struct NSQConsumer {
     from_connections_rx: tokio::sync::mpsc::UnboundedReceiver<NSQEvent>,
     clients_ref:
-        std::sync::Arc<std::sync::Mutex<HashMap<String, NSQConnectionMeta>>>,
+        std::sync::Arc<std::sync::RwLock<HashMap<String, NSQConnectionMeta>>>,
     oneshots: Vec<tokio::sync::oneshot::Sender<()>>,
 }
 
@@ -209,7 +209,7 @@ async fn lookup(
     address: &str,
     config: &NSQConsumerConfig,
     clients_ref: &std::sync::Arc<
-        std::sync::Mutex<HashMap<String, NSQConnectionMeta>>,
+        std::sync::RwLock<HashMap<String, NSQConnectionMeta>>,
     >,
     from_connections_tx: &tokio::sync::mpsc::UnboundedSender<NSQEvent>,
 ) -> Result<(), Error> {
@@ -227,7 +227,7 @@ async fn lookup(
     let lookup_response: LookupResponse = serde_json::from_slice(&buffer)?;
 
     {
-        let mut guard = clients_ref.lock().unwrap();
+        let mut guard = clients_ref.write().unwrap();
 
         for producer in lookup_response.producers.iter() {
             let address = producer.broadcast_address.clone()
@@ -287,7 +287,7 @@ async fn lookup_supervisor(
     poll_interval: std::time::Duration,
     config: NSQConsumerConfig,
     clients_ref: std::sync::Arc<
-        std::sync::Mutex<HashMap<String, NSQConnectionMeta>>,
+        std::sync::RwLock<HashMap<String, NSQConnectionMeta>>,
     >,
     from_connections_tx: tokio::sync::mpsc::UnboundedSender<NSQEvent>,
 ) {
@@ -304,11 +304,10 @@ async fn lookup_supervisor(
 
 async fn rebalancer_step(
     max_in_flight: u32,
-    clients_ref: &std::sync::Arc<
-        std::sync::Mutex<HashMap<String, NSQConnectionMeta>>,
+    clients_ref: &std::sync::RwLock<HashMap<String, NSQConnectionMeta>,
     >,
 ) -> bool {
-    let guard = clients_ref.lock().unwrap();
+    let guard = clients_ref.read().unwrap();
 
     let mut healthy = Vec::new();
 
@@ -340,7 +339,7 @@ async fn rebalancer(
     rebalance_interval: std::time::Duration,
     max_in_flight: u32,
     clients_ref: std::sync::Arc<
-        std::sync::Mutex<HashMap<String, NSQConnectionMeta>>,
+        std::sync::RwLock<HashMap<String, NSQConnectionMeta>>,
     >,
 ) {
     loop {
@@ -358,7 +357,7 @@ impl NSQConsumer {
             tokio::sync::mpsc::unbounded_channel();
 
         let mut pool = NSQConsumer {
-            clients_ref: std::sync::Arc::new(std::sync::Mutex::new(
+            clients_ref: std::sync::Arc::new(std::sync::RwLock::new(
                 HashMap::new(),
             )),
             oneshots: Vec::new(),
@@ -367,7 +366,7 @@ impl NSQConsumer {
 
         match &config.sources {
             NSQConsumerConfigSources::Daemons(daemons) => {
-                let mut guard = pool.clients_ref.lock().unwrap();
+                let mut guard = pool.clients_ref.write().unwrap();
 
                 for address in daemons.iter() {
                     info!("new producer: {}", address);
@@ -466,7 +465,7 @@ impl NSQConsumer {
     /// Indicates if any connections are blocked on processing before being able to receive more
     /// messages. This can be useful for determining when to process a batch of messages.
     pub fn is_starved(&mut self) -> bool {
-        let guard = self.clients_ref.lock().unwrap();
+        let guard = self.clients_ref.read().unwrap();
 
         for (_, node) in guard.iter() {
             if node.connection.is_starved() {
