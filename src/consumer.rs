@@ -164,7 +164,7 @@ impl NSQConsumerConfig {
 }
 
 struct NSQConnectionMeta {
-    connection: NSQDConnection,
+    connection: Arc<NSQDConnection>,
     found_by: HashSet<String>,
 }
 
@@ -174,7 +174,7 @@ struct NSQConnectionMeta {
 /// NSQD instances. As connections die, and restart `REQ` will automatically be
 /// rebalanced to the active connections.
 pub struct NSQConsumer {
-    from_connections_rx: tokio::sync::mpsc::UnboundedReceiver<NSQEvent>,
+    from_connections_rx: tokio::sync::mpsc::Receiver<NSQEvent>,
     clients_ref:
         std::sync::Arc<std::sync::RwLock<HashMap<String, NSQConnectionMeta>>>,
     oneshots: Vec<tokio::sync::oneshot::Sender<()>>,
@@ -211,7 +211,7 @@ async fn lookup(
     clients_ref: &std::sync::Arc<
         std::sync::RwLock<HashMap<String, NSQConnectionMeta>>,
     >,
-    from_connections_tx: &tokio::sync::mpsc::UnboundedSender<NSQEvent>,
+    from_connections_tx: &tokio::sync::mpsc::Sender<NSQEvent>,
 ) -> Result<(), Error> {
     let raw_uri = (address.to_owned() + "/lookup?topic=" + &config.topic.topic)
         .to_string();
@@ -225,6 +225,7 @@ async fn lookup(
     let buffer = hyper::body::to_bytes(response).await?;
 
     let lookup_response: LookupResponse = serde_json::from_slice(&buffer)?;
+    let mut new_clients = Vec::new();
 
     {
         let mut guard = clients_ref.write().unwrap();
@@ -257,8 +258,7 @@ async fn lookup(
                         },
                         from_connections_tx.clone(),
                     );
-
-                    let _ = client.queue_message(MessageToNSQ::RDY(1));
+                    let client = Arc::new(client);
 
                     let mut found_by = HashSet::new();
                     found_by.insert(address.clone());
@@ -266,15 +266,22 @@ async fn lookup(
                     guard.insert(
                         address,
                         NSQConnectionMeta {
-                            connection: client,
+                            connection: client.clone(),
                             found_by,
                         },
                     );
+
+                    new_clients.push(client);
+
                 }
             }
         }
 
         remove_old_connections(&mut guard);
+    }
+
+    for client in new_clients.into_iter() {
+        client.queue_message(MessageToNSQ::RDY(1)).await?;
     }
 
     rebalancer_step(config.max_in_flight, &clients_ref).await;
@@ -289,7 +296,7 @@ async fn lookup_supervisor(
     clients_ref: std::sync::Arc<
         std::sync::RwLock<HashMap<String, NSQConnectionMeta>>,
     >,
-    from_connections_tx: tokio::sync::mpsc::UnboundedSender<NSQEvent>,
+    from_connections_tx: tokio::sync::mpsc::Sender<NSQEvent>,
 ) {
     loop {
         let f = lookup(&address, &config, &clients_ref, &from_connections_tx);
@@ -306,29 +313,30 @@ async fn rebalancer_step(
     max_in_flight: u32,
     clients_ref: &std::sync::RwLock<HashMap<String, NSQConnectionMeta>>,
 ) -> bool {
-    let guard = clients_ref.read().unwrap();
+    let healthy = {
+        let guard = clients_ref.read().unwrap();
 
-    let mut healthy = Vec::new();
+        let mut healthy = Vec::new();
 
-    for (_, node) in guard.iter() {
-        if node.connection.healthy() {
-            healthy.push(&node.connection);
+        for (_, node) in guard.iter() {
+            if node.connection.healthy() {
+                healthy.push(node.connection.clone());
+            }
         }
-    }
 
-    if healthy.is_empty() {
-        return false;
-    }
+        if healthy.is_empty() {
+            return false;
+        }
+
+        healthy
+    };
 
     let partial = max_in_flight / (healthy.len() as u32);
 
     let partial = if partial == 0 { 1 } else { partial };
 
-    for node in &healthy {
-        let _ = NSQDConnection::queue_message(
-            *node,
-            MessageToNSQ::RDY(partial as u16),
-        );
+    for node in healthy.into_iter() {
+        let _ = node.queue_message(MessageToNSQ::RDY(partial as u16)).await;
     }
 
     true
@@ -353,7 +361,7 @@ async fn rebalancer(
 impl NSQConsumer {
     fn new(config: NSQConsumerConfig) -> NSQConsumer {
         let (from_connections_tx, from_connections_rx) =
-            tokio::sync::mpsc::unbounded_channel();
+            tokio::sync::mpsc::channel(crate::connection::RX_QUEUE_CAPACITY);
 
         let mut pool = NSQConsumer {
             clients_ref: std::sync::Arc::new(std::sync::RwLock::new(
@@ -388,7 +396,7 @@ impl NSQConsumer {
                     guard.insert(
                         address.clone(),
                         NSQConnectionMeta {
-                            connection: client,
+                            connection: Arc::new(client),
                             found_by: HashSet::new(),
                         },
                     );

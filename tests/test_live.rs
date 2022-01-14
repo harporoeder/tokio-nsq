@@ -44,7 +44,7 @@ async fn cycle_messages(
         assert_eq!(message.attempt, 1);
         assert_eq!(message.body, x.to_string().as_bytes().to_vec());
 
-        message.finish();
+        message.finish().await;
     }
 }
 
@@ -66,7 +66,7 @@ async fn run_message_tests(
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, large);
-    message.finish();
+    message.finish().await;
 
     // MPUB
     producer
@@ -78,12 +78,12 @@ async fn run_message_tests(
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, b"alice".to_vec());
-    message.finish();
+    message.finish().await;
 
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, b"bob".to_vec());
-    message.finish();
+    message.finish().await;
 
     // DPUB
     producer
@@ -95,7 +95,7 @@ async fn run_message_tests(
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, b"hello".to_vec());
-    message.finish();
+    message.finish().await;
 }
 
 fn make_default() -> (Arc<NSQTopic>, NSQProducer, NSQConsumer) {
@@ -331,7 +331,7 @@ async fn direct_connection_snappy_large() {
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, large);
-    message.finish();
+    message.finish().await;
 }
 
 #[tokio::test]
