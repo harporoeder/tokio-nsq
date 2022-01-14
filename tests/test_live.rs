@@ -30,6 +30,7 @@ async fn cycle_messages(
     for x in 0..n {
         producer
             .publish(&topic, x.to_string().as_bytes().to_vec())
+            .await
             .unwrap();
     }
 
@@ -59,7 +60,7 @@ async fn run_message_tests(
     let mut large = Vec::new();
     large.resize(1024 * 1024, 0);
 
-    producer.publish(&topic, large.clone()).unwrap();
+    producer.publish(&topic, large.clone()).await.unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let message = consumer.consume_filtered().await.unwrap();
@@ -70,6 +71,7 @@ async fn run_message_tests(
     // MPUB
     producer
         .publish_multiple(&topic, vec![b"alice".to_vec(), b"bob".to_vec()])
+        .await
         .unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
@@ -86,6 +88,7 @@ async fn run_message_tests(
     // DPUB
     producer
         .publish_deferred(&topic, b"hello".to_vec(), 1)
+        .await
         .unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
@@ -322,7 +325,7 @@ async fn direct_connection_snappy_large() {
     large.resize(1024 * 1024, 0);
 
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-    producer.publish(&topic, large.clone()).unwrap();
+    producer.publish(&topic, large.clone()).await.unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let message = consumer.consume_filtered().await.unwrap();
