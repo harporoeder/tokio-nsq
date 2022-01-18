@@ -773,6 +773,9 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
         let config = TlsConnector::from(config);
         let dnsname = DNSNameRef::try_from_ascii_str(&config_tls.domain_name)?;
 
+        // Turn stream back into TcpStream as rustls does buffering itself
+        let stream = stream.into_inner().into_inner();
+
         let stream = config.connect(dnsname, stream).await?;
 
         let (mut stream_rx, stream_tx) = tokio::io::split(stream);
