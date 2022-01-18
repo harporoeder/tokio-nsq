@@ -246,8 +246,38 @@ where
         }
     }
 
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<()>> {
-        Poll::Ready(Ok(()))
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<()>> {
+        let this = &mut *self;
+
+        while this.output_start != this.output_end {
+            match AsyncWrite::poll_write(
+                Pin::new(&mut this.inner),
+                cx,
+                &this.encoder.get_mut().get_mut()
+                [this.output_start..this.output_end],
+            ) {
+                Poll::Ready(Ok(n)) => {
+                    this.output_start += n;
+
+                    if this.output_start != this.output_end {
+                        return Poll::Pending;
+                    } else {
+                        break;
+                    }
+                }
+                Poll::Ready(Err(err)) => {
+                    return Poll::Ready(Err(err));
+                }
+                Poll::Pending => {
+                    return Poll::Pending;
+                }
+            }
+        }
+
+        this.output_start = 0;
+        this.output_end = 0;
+
+        Pin::new(&mut self.inner).poll_flush(cx)
     }
 
     fn poll_shutdown(
