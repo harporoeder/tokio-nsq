@@ -1,5 +1,5 @@
 use ::core::result::Result;
-use ::failure::Error;
+use ::anyhow::Error;
 use ::std::sync::Arc;
 
 use crate::connection::*;

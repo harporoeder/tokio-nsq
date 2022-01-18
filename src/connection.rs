@@ -1,12 +1,11 @@
 use ::async_compression::tokio::bufread::DeflateDecoder;
 use ::async_compression::tokio::write::DeflateEncoder;
 use ::backoff::backoff::Backoff;
-use ::failure::Error;
-use ::failure::Fail;
+use ::anyhow::Error;
+use ::thiserror::Error;
 use ::log::*;
 use ::rustls::*;
 use ::std::convert::TryFrom;
-use ::std::fmt;
 use ::std::pin::Pin;
 use ::std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 use ::std::sync::Arc;
@@ -29,24 +28,14 @@ use crate::connection_config::*;
 use crate::snappy::*;
 use crate::with_stopper::with_stopper;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
+#[error("None")]
 struct NoneError;
 
-impl fmt::Display for NoneError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
+#[error("protocol error: {}", .message)]
 struct ProtocolError {
     message: String,
-}
-
-impl fmt::Display for ProtocolError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
-    }
 }
 
 struct Unverified {}
@@ -327,7 +316,8 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
 
                 continue;
             }
-            Frame::Error(_) => {
+            Frame::Error(err) => {
+                error!("received error frame: {:?}", err);
                 // should be impossible except for non fatal errors based on
                 // `read_frame_data`
             }
