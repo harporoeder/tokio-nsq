@@ -204,29 +204,18 @@ where
 
         loop {
             if this.output_start != this.output_end {
-                match AsyncWrite::poll_write(
-                    Pin::new(&mut this.inner),
-                    cx,
-                    &this.encoder.get_mut().get_mut()
-                        [this.output_start..this.output_end],
-                ) {
-                    Poll::Ready(Ok(0)) => {
-                        return Poll::Ready(Ok(0));
-                    }
-                    Poll::Ready(Ok(n)) => {
-                        this.output_start += n;
+                let buf = &this.encoder.get_mut().get_mut()
+                        [this.output_start..this.output_end];
+                let n = futures::ready!(
+                    AsyncWrite::poll_write(Pin::new(&mut this.inner), cx, buf)
+                )?;
+                if n == 0 {
+                    return Poll::Ready(Ok(0));
+                } else {
+                    this.output_start += n;
 
-                        if this.output_start != this.output_end {
-                            return Poll::Pending;
-                        } else {
-                            return Poll::Ready(Ok(input_len));
-                        }
-                    }
-                    Poll::Ready(Err(err)) => {
-                        return Poll::Ready(Err(err));
-                    }
-                    Poll::Pending => {
-                        return Poll::Pending;
+                    if this.output_start == this.output_end {
+                        return Poll::Ready(Ok(input_len));
                     }
                 }
             }
@@ -249,33 +238,7 @@ where
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<()>> {
         let this = &mut *self;
 
-        while this.output_start != this.output_end {
-            match AsyncWrite::poll_write(
-                Pin::new(&mut this.inner),
-                cx,
-                &this.encoder.get_mut().get_mut()
-                [this.output_start..this.output_end],
-            ) {
-                Poll::Ready(Ok(n)) => {
-                    this.output_start += n;
-
-                    if this.output_start != this.output_end {
-                        return Poll::Pending;
-                    } else {
-                        break;
-                    }
-                }
-                Poll::Ready(Err(err)) => {
-                    return Poll::Ready(Err(err));
-                }
-                Poll::Pending => {
-                    return Poll::Pending;
-                }
-            }
-        }
-
-        this.output_start = 0;
-        this.output_end = 0;
+        debug_assert_eq!(this.output_start, this.output_end);
 
         Pin::new(&mut self.inner).poll_flush(cx)
     }
