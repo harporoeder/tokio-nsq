@@ -1,5 +1,11 @@
 # Change log
 
+## [0.12.2] - 2022-01-23
+### Changed:
+- Replace the deprecated library failure with anyhow / thiserror.
+
+Thanks polachok!
+
 ## [0.12.1] - 2022-01-21
 ### Changed:
 - Switch to buffered IO to improve performance
