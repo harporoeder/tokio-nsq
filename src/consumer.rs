@@ -1,5 +1,5 @@
 use ::core::result::Result;
-use ::failure::Error;
+use ::anyhow::Error;
 use ::log::*;
 use ::std::collections::HashMap;
 use ::std::collections::HashSet;
