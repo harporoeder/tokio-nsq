@@ -529,18 +529,14 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
                 };
 
                 write_rdy(stream, actual_ready).await?;
-                stream.flush().await?;
 
                 shared.current_ready.store(actual_ready, Ordering::SeqCst);
             }
         }
         MessageToNSQ::FIN(id) => {
-            let before = shared.inflight.fetch_sub(1, Ordering::SeqCst);
+            shared.inflight.fetch_sub(1, Ordering::SeqCst);
 
             write_fin(stream, &id).await?;
-            if before == 1 {
-                stream.flush().await?;
-            }
         }
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;
