@@ -1,5 +1,11 @@
 # Change log
 
+## [0.13.0] - 2022-02-02
+### Changed:
+- Switched to bounded instead of unbounded queues (limit of 10 thousand items)
+
+Thanks polachok!
+
 ## [0.12.2] - 2022-01-23
 ### Changed:
 - Replace the deprecated library failure with anyhow / thiserror.
