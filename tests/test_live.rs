@@ -30,6 +30,7 @@ async fn cycle_messages(
     for x in 0..n {
         producer
             .publish(&topic, x.to_string().as_bytes().to_vec())
+            .await
             .unwrap();
     }
 
@@ -43,7 +44,7 @@ async fn cycle_messages(
         assert_eq!(message.attempt, 1);
         assert_eq!(message.body, x.to_string().as_bytes().to_vec());
 
-        message.finish();
+        message.finish().await;
     }
 }
 
@@ -59,40 +60,42 @@ async fn run_message_tests(
     let mut large = Vec::new();
     large.resize(1024 * 1024, 0);
 
-    producer.publish(&topic, large.clone()).unwrap();
+    producer.publish(&topic, large.clone()).await.unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, large);
-    message.finish();
+    message.finish().await;
 
     // MPUB
     producer
         .publish_multiple(&topic, vec![b"alice".to_vec(), b"bob".to_vec()])
+        .await
         .unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, b"alice".to_vec());
-    message.finish();
+    message.finish().await;
 
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, b"bob".to_vec());
-    message.finish();
+    message.finish().await;
 
     // DPUB
     producer
         .publish_deferred(&topic, b"hello".to_vec(), 1)
+        .await
         .unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, b"hello".to_vec());
-    message.finish();
+    message.finish().await;
 }
 
 fn make_default() -> (Arc<NSQTopic>, NSQProducer, NSQConsumer) {
@@ -322,13 +325,13 @@ async fn direct_connection_snappy_large() {
     large.resize(1024 * 1024, 0);
 
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Healthy());
-    producer.publish(&topic, large.clone()).unwrap();
+    producer.publish(&topic, large.clone()).await.unwrap();
     assert_matches!(producer.consume().await.unwrap(), NSQEvent::Ok());
 
     let message = consumer.consume_filtered().await.unwrap();
     assert_eq!(message.attempt, 1);
     assert_eq!(message.body, large);
-    message.finish();
+    message.finish().await;
 }
 
 #[tokio::test]

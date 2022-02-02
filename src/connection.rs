@@ -28,6 +28,10 @@ use crate::connection_config::*;
 use crate::snappy::*;
 use crate::with_stopper::with_stopper;
 
+/* TODO: make it configurable */
+pub(crate) const RX_QUEUE_CAPACITY: usize = 10_000;
+const TX_QUEUE_CAPACITY: usize = 10_000;
+
 #[derive(Debug, Error)]
 #[error("None")]
 struct NoneError;
@@ -135,12 +139,14 @@ pub enum NSQEvent {
 
 impl NSQMessage {
     /// Sends a message acknowledgement to NSQ.
-    pub fn finish(mut self) {
+    pub async fn finish(mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
             let _ = self
                 .context
                 .to_connection_tx_ref
-                .send(MessageToNSQ::FIN(self.id));
+                .send(MessageToNSQ::FIN(self.id))
+                .await
+                .unwrap();
 
             self.consumed = true;
         } else {
@@ -149,13 +155,13 @@ impl NSQMessage {
     }
 
     /// Requeue a message with the given delay strategy
-    pub fn requeue(mut self, strategy: NSQRequeueDelay) {
+    pub async fn requeue(mut self, strategy: NSQRequeueDelay) {
         if self.context.healthy.load(Ordering::SeqCst) {
             let _ = self.context.to_connection_tx_ref.send(MessageToNSQ::REQ(
                 self.id,
                 self.attempt,
                 strategy,
-            ));
+            )).await;
 
             self.consumed = true;
         } else {
@@ -164,12 +170,13 @@ impl NSQMessage {
     }
 
     /// Tells NSQ daemon to reset the timeout for this message.
-    pub fn touch(&mut self) {
+    pub async fn touch(&mut self) {
         if self.context.healthy.load(Ordering::SeqCst) {
             let _ = self
                 .context
                 .to_connection_tx_ref
-                .send(MessageToNSQ::TOUCH(self.id));
+                .send(MessageToNSQ::TOUCH(self.id))
+                .await;
         } else {
             warn!("touch unhealthy");
         }
@@ -195,10 +202,10 @@ impl Drop for NSQMessage {
 
 struct NSQDConnectionState {
     config: NSQDConfig,
-    from_connection_tx: tokio::sync::mpsc::UnboundedSender<NSQEvent>,
-    to_connection_rx: tokio::sync::mpsc::UnboundedReceiver<MessageToNSQ>,
+    from_connection_tx: tokio::sync::mpsc::Sender<NSQEvent>,
+    to_connection_rx: tokio::sync::mpsc::Receiver<MessageToNSQ>,
     to_connection_tx_ref:
-        std::sync::Arc<tokio::sync::mpsc::UnboundedSender<MessageToNSQ>>,
+        std::sync::Arc<tokio::sync::mpsc::Sender<MessageToNSQ>>,
     shared: Arc<NSQDConnectionShared>,
 }
 
@@ -206,12 +213,13 @@ struct NSQDConnectionState {
 struct NSQDConnectionShared {
     healthy: AtomicBool,
     to_connection_tx_ref:
-        Arc<tokio::sync::mpsc::UnboundedSender<MessageToNSQ>>,
+        Arc<tokio::sync::mpsc::Sender<MessageToNSQ>>,
     inflight: AtomicU64,
     current_ready: AtomicU16,
     max_ready: AtomicU16,
 }
 
+#[derive(Debug)]
 struct FrameMessage {
     timestamp: u64,
     attempt: u16,
@@ -219,6 +227,7 @@ struct FrameMessage {
     body: Vec<u8>,
 }
 
+#[derive(Debug)]
 enum Frame {
     Response(Vec<u8>),
     Error(Vec<u8>),
@@ -303,15 +312,16 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
 async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
     stream: &mut S,
     shared: &Arc<NSQDConnectionShared>,
-    from_connection_tx: &mut tokio::sync::mpsc::UnboundedSender<NSQEvent>,
+    from_connection_tx: &mut tokio::sync::mpsc::Sender<NSQEvent>,
 ) -> Result<(), Error> {
     loop {
-        match read_frame_data(stream).await? {
+        let frame = read_frame_data(stream).await?;
+        match frame {
             Frame::Response(body) => {
                 if body == b"_heartbeat_" {
-                    shared.to_connection_tx_ref.send(MessageToNSQ::NOP)?;
+                    shared.to_connection_tx_ref.send(MessageToNSQ::NOP).await?;
                 } else if body == b"OK" {
-                    from_connection_tx.send(NSQEvent::Ok())?;
+                    from_connection_tx.send(NSQEvent::Ok()).await?;
                 }
 
                 continue;
@@ -329,7 +339,7 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
                     attempt: message.attempt,
                     id: message.id,
                     timestamp: message.timestamp,
-                }))?;
+                })).await?;
 
                 shared.inflight.fetch_add(1, Ordering::SeqCst);
 
@@ -519,18 +529,14 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
                 };
 
                 write_rdy(stream, actual_ready).await?;
-                stream.flush().await?;
 
                 shared.current_ready.store(actual_ready, Ordering::SeqCst);
             }
         }
         MessageToNSQ::FIN(id) => {
-            let before = shared.inflight.fetch_sub(1, Ordering::SeqCst);
+            shared.inflight.fetch_sub(1, Ordering::SeqCst);
 
             write_fin(stream, &id).await?;
-            if before == 1 {
-                stream.flush().await?;
-            }
         }
         MessageToNSQ::TOUCH(id) => {
             write_touch(stream, &id).await?;
@@ -563,7 +569,7 @@ async fn handle_single_command<S: AsyncWrite + std::marker::Unpin>(
 async fn handle_commands<S: AsyncWrite + std::marker::Unpin>(
     config: &NSQDConfig,
     shared: &NSQDConnectionShared,
-    to_connection_rx: &mut tokio::sync::mpsc::UnboundedReceiver<MessageToNSQ>,
+    to_connection_rx: &mut tokio::sync::mpsc::Receiver<MessageToNSQ>,
     stream: &mut S,
 ) -> Result<(), Error> {
     let mut interval = tokio::time::interval(config.shared.flush_interval);
@@ -625,7 +631,7 @@ async fn run_generic<
 
     state.shared.healthy.store(true, Ordering::SeqCst);
 
-    state.from_connection_tx.send(NSQEvent::Healthy())?;
+    state.from_connection_tx.send(NSQEvent::Healthy()).await?;
 
     let f1 = handle_commands(
         &state.config,
@@ -948,16 +954,16 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
 
 pub struct NSQDConnection {
     shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
-    from_connection_rx: tokio::sync::mpsc::UnboundedReceiver<NSQEvent>,
+    from_connection_rx: tokio::sync::mpsc::Receiver<NSQEvent>,
     to_connection_tx_ref:
-        std::sync::Arc<tokio::sync::mpsc::UnboundedSender<MessageToNSQ>>,
+        std::sync::Arc<tokio::sync::mpsc::Sender<MessageToNSQ>>,
     shared: Arc<NSQDConnectionShared>,
 }
 
 impl NSQDConnection {
     pub fn new(config: NSQDConfig) -> NSQDConnection {
         let (from_connection_tx, from_connection_rx) =
-            tokio::sync::mpsc::unbounded_channel();
+            tokio::sync::mpsc::channel(RX_QUEUE_CAPACITY);
 
         NSQDConnection::new_with_queues(
             config,
@@ -968,9 +974,9 @@ impl NSQDConnection {
 
     pub fn new_with_queue(
         config: NSQDConfig,
-        from_connection_tx: tokio::sync::mpsc::UnboundedSender<NSQEvent>,
+        from_connection_tx: tokio::sync::mpsc::Sender<NSQEvent>,
     ) -> NSQDConnection {
-        let (_, from_connection_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (_, from_connection_rx) = tokio::sync::mpsc::channel(RX_QUEUE_CAPACITY);
 
         NSQDConnection::new_with_queues(
             config,
@@ -981,12 +987,12 @@ impl NSQDConnection {
 
     fn new_with_queues(
         config: NSQDConfig,
-        from_connection_tx: tokio::sync::mpsc::UnboundedSender<NSQEvent>,
-        from_connection_rx: tokio::sync::mpsc::UnboundedReceiver<NSQEvent>,
+        from_connection_tx: tokio::sync::mpsc::Sender<NSQEvent>,
+        from_connection_rx: tokio::sync::mpsc::Receiver<NSQEvent>,
     ) -> NSQDConnection {
         let (write_shutdown, read_shutdown) = tokio::sync::oneshot::channel();
         let (to_connection_tx, to_connection_rx) =
-            tokio::sync::mpsc::unbounded_channel();
+            tokio::sync::mpsc::channel(TX_QUEUE_CAPACITY);
 
         let to_connection_tx_ref_1 = std::sync::Arc::new(to_connection_tx);
         let to_connection_tx_ref_2 = to_connection_tx_ref_1.clone();
@@ -1044,12 +1050,12 @@ impl NSQDConnection {
         self.from_connection_rx.recv().await
     }
 
-    pub fn queue_message(
+    pub async fn queue_message(
         &self,
         message: MessageToNSQ,
     ) -> Result<(), Error> {
         if self.shared.healthy.load(Ordering::SeqCst) {
-            if self.to_connection_tx_ref.send(message).is_err() {
+            if self.to_connection_tx_ref.send(message).await.is_err() {
                 return Err(Error::from(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     "queue message lock failed",
