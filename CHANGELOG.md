@@ -1,5 +1,9 @@
 # Change log
 
+## [0.13.1] - 2023-06-12
+- Updated 'built' dependency to '0.6'. Thanks taufik-rama!
+- Added 'Accept' header for NSQ Lookup requests
+
 ## [0.13.0] - 2022-02-02
 ### Changed:
 - Switched to bounded instead of unbounded queues (limit of 10 thousand items)
