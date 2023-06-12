@@ -220,7 +220,13 @@ async fn lookup(
 
     let client = hyper::Client::new();
 
-    let response = client.get(uri).await?;
+    let request = hyper::Request::builder()
+        .method(hyper::Method::GET)
+        .uri(uri)
+        .header("Accept", "application/vnd.nsq; version=1.0")
+        .body(hyper::Body::empty())?;
+
+    let response = client.request(request).await?;
 
     let buffer = hyper::body::to_bytes(response).await?;
 
