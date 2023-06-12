@@ -171,7 +171,7 @@ impl NSQMessage {
     }
 
     /// Tells NSQ daemon to reset the timeout for this message.
-    pub async fn touch(&mut self) {
+    pub async fn touch(&self) {
         if self.context.healthy.load(Ordering::SeqCst) {
             let _ = self
                 .context
