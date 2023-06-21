@@ -1,6 +1,11 @@
 # Change log
 
+## [0.13.2] - 2023-06-21
+### Fixed:
+- Fixed all modern clippy warnings and run cargo fmt
+
 ## [0.13.1] - 2023-06-12
+### Fixed:
 - Updated 'built' dependency to '0.6'. Thanks taufik-rama!
 - Added 'Accept' header for NSQ Lookup requests
 

@@ -10,7 +10,7 @@ pub struct NSQDeflateLevel {
 impl NSQDeflateLevel {
     /// Compression level N must be > 0 && < 10
     pub fn new(level: u8) -> Option<NSQDeflateLevel> {
-        if level < 1 || level > 9 {
+        if !(1..=9).contains(&level) {
             None
         } else {
             Some(NSQDeflateLevel { level })
@@ -196,10 +196,7 @@ impl NSQConfigShared {
     /// How often the TCP write buffer should be flushed. An outgoing write
     /// buffer substantially increases network performance, particularly in
     /// the context of compression. Defaults to every 250 milliseconds.
-    pub fn set_flush_interval(
-        mut self,
-        duration: std::time::Duration,
-    ) -> Self {
+    pub fn set_flush_interval(mut self, duration: std::time::Duration) -> Self {
         self.flush_interval = duration;
 
         self
@@ -274,7 +271,7 @@ pub struct NSQSampleRate {
 impl NSQSampleRate {
     /// N must be > 0 && <= 100
     pub fn new(rate: u8) -> Option<NSQSampleRate> {
-        if rate < 1 || rate > 100 {
+        if !(1..=100).contains(&rate) {
             None
         } else {
             Some(NSQSampleRate { rate })

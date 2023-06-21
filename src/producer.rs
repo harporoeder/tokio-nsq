@@ -1,5 +1,5 @@
-use ::core::result::Result;
 use ::anyhow::Error;
+use ::core::result::Result;
 use ::std::sync::Arc;
 
 use crate::connection::*;
@@ -72,7 +72,8 @@ impl NSQProducer {
         value: Vec<u8>,
     ) -> Result<(), Error> {
         self.connection
-            .queue_message(MessageToNSQ::PUB(topic.clone(), value)).await
+            .queue_message(MessageToNSQ::PUB(topic.clone(), value))
+            .await
     }
 
     /// Queue a DPUB message to be asynchronously sent
@@ -82,11 +83,13 @@ impl NSQProducer {
         value: Vec<u8>,
         delay_milliseconds: u32,
     ) -> Result<(), Error> {
-        self.connection.queue_message(MessageToNSQ::DPUB(
-            topic.clone(),
-            value,
-            delay_milliseconds,
-        )).await
+        self.connection
+            .queue_message(MessageToNSQ::DPUB(
+                topic.clone(),
+                value,
+                delay_milliseconds,
+            ))
+            .await
     }
 
     /// Queue an MPUB message to be asynchronously sent
@@ -96,6 +99,7 @@ impl NSQProducer {
         value: Vec<Vec<u8>>,
     ) -> Result<(), Error> {
         self.connection
-            .queue_message(MessageToNSQ::MPUB(topic.clone(), value)).await
+            .queue_message(MessageToNSQ::MPUB(topic.clone(), value))
+            .await
     }
 }

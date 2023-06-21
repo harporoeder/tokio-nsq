@@ -70,7 +70,10 @@ where
                     this.output_end - this.output_start,
                 );
 
-                buf.put_slice(&this.output_buffer[this.output_start..this.output_start + count]);
+                buf.put_slice(
+                    &this.output_buffer
+                        [this.output_start..this.output_start + count],
+                );
 
                 this.output_start += count;
 
@@ -81,7 +84,8 @@ where
             this.output_end = 0;
 
             if this.input_end < 4 {
-                let mut buf = ReadBuf::new(&mut this.input_buffer[this.input_end..4]);
+                let mut buf =
+                    ReadBuf::new(&mut this.input_buffer[this.input_end..4]);
                 match Pin::new(&mut this.inner).poll_read(cx, &mut buf) {
                     Poll::Ready(Ok(())) => {
                         let n = buf.filled().len();
@@ -106,7 +110,9 @@ where
             let len: usize = read_u24_le(&this.input_buffer[1..]) as usize;
 
             if this.input_end < len + 4 {
-                let mut buf = ReadBuf::new(&mut this.input_buffer[this.input_end..len + 4]);
+                let mut buf = ReadBuf::new(
+                    &mut this.input_buffer[this.input_end..len + 4],
+                );
                 match Pin::new(&mut this.inner).poll_read(cx, &mut buf) {
                     Poll::Ready(Ok(())) => {
                         let n = buf.filled().len();
@@ -205,10 +211,12 @@ where
         loop {
             if this.output_start != this.output_end {
                 let buf = &this.encoder.get_mut().get_mut()
-                        [this.output_start..this.output_end];
-                let n = futures::ready!(
-                    AsyncWrite::poll_write(Pin::new(&mut this.inner), cx, buf)
-                )?;
+                    [this.output_start..this.output_end];
+                let n = futures::ready!(AsyncWrite::poll_write(
+                    Pin::new(&mut this.inner),
+                    cx,
+                    buf
+                ))?;
                 if n == 0 {
                     return Poll::Ready(Ok(0));
                 } else {
@@ -235,7 +243,10 @@ where
         }
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<()>> {
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context,
+    ) -> Poll<Result<()>> {
         let this = &mut *self;
 
         debug_assert_eq!(this.output_start, this.output_end);

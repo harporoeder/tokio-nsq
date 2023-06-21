@@ -1,5 +1,5 @@
-use ::core::result::Result;
 use ::anyhow::Error;
+use ::core::result::Result;
 use ::log::*;
 use ::std::collections::HashMap;
 use ::std::collections::HashSet;
@@ -278,7 +278,6 @@ async fn lookup(
                     );
 
                     new_clients.push(client);
-
                 }
             }
         }
@@ -290,7 +289,7 @@ async fn lookup(
         client.queue_message(MessageToNSQ::RDY(1)).await?;
     }
 
-    rebalancer_step(config.max_in_flight, &clients_ref).await;
+    rebalancer_step(config.max_in_flight, clients_ref).await;
 
     Ok(())
 }

@@ -1,27 +1,27 @@
+use ::anyhow::Error;
 use ::async_compression::tokio::bufread::DeflateDecoder;
 use ::async_compression::tokio::write::DeflateEncoder;
 use ::backoff::backoff::Backoff;
-use ::anyhow::Error;
-use ::thiserror::Error;
+use ::futures::Future;
+use ::futures_util::FutureExt;
 use ::log::*;
 use ::rustls::*;
 use ::std::convert::TryFrom;
 use ::std::pin::Pin;
 use ::std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 use ::std::sync::Arc;
-use ::std::time::Instant;
 use ::std::task::Poll;
-use ::tokio::io::ReadBuf;
+use ::std::time::Duration;
+use ::std::time::Instant;
+use ::thiserror::Error;
 use ::tokio::io::AsyncRead;
 use ::tokio::io::AsyncReadExt;
 use ::tokio::io::AsyncWrite;
 use ::tokio::io::AsyncWriteExt;
-use ::tokio::time::{Sleep, sleep};
+use ::tokio::io::ReadBuf;
+use ::tokio::time::{sleep, Sleep};
 use ::tokio_rustls::webpki::DNSNameRef;
 use ::tokio_rustls::{rustls::ClientConfig, TlsConnector};
-use ::futures_util::FutureExt;
-use ::std::time::Duration;
-use ::futures::Future;
 
 use crate::built_info;
 use crate::connection_config::*;
@@ -98,6 +98,7 @@ pub enum NSQRequeueDelay {
 }
 
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum MessageToNSQ {
     NOP,
     PUB(Arc<NSQTopic>, Vec<u8>),
@@ -157,11 +158,11 @@ impl NSQMessage {
     /// Requeue a message with the given delay strategy
     pub async fn requeue(mut self, strategy: NSQRequeueDelay) {
         if self.context.healthy.load(Ordering::SeqCst) {
-            let _ = self.context.to_connection_tx_ref.send(MessageToNSQ::REQ(
-                self.id,
-                self.attempt,
-                strategy,
-            )).await;
+            let _ = self
+                .context
+                .to_connection_tx_ref
+                .send(MessageToNSQ::REQ(self.id, self.attempt, strategy))
+                .await;
 
             self.consumed = true;
         } else {
@@ -212,8 +213,7 @@ struct NSQDConnectionState {
 #[derive(Debug)]
 struct NSQDConnectionShared {
     healthy: AtomicBool,
-    to_connection_tx_ref:
-        Arc<tokio::sync::mpsc::Sender<MessageToNSQ>>,
+    to_connection_tx_ref: Arc<tokio::sync::mpsc::Sender<MessageToNSQ>>,
     inflight: AtomicU64,
     current_ready: AtomicU16,
     max_ready: AtomicU16,
@@ -267,7 +267,7 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
             stream.read_exact(&mut frame_body).await?;
 
             match frame_body.as_slice() {
-                b"E_FIN_FAILED" | b"E_REQ_FAILED" | b"E_TOUCH_FAILED"  => {
+                b"E_FIN_FAILED" | b"E_REQ_FAILED" | b"E_TOUCH_FAILED" => {
                     warn!("non fatal protocol error {:?}", frame_body);
 
                     Ok(Frame::Error(frame_body))
@@ -277,9 +277,7 @@ async fn read_frame_data<S: AsyncRead + std::marker::Unpin>(
 
                     let message = String::from_utf8(frame_body)?;
 
-                    Err(Error::from(ProtocolError {
-                        message,
-                    }))
+                    Err(Error::from(ProtocolError { message }))
                 }
             }
         }
@@ -332,14 +330,16 @@ async fn handle_reads<S: AsyncRead + std::marker::Unpin>(
                 // `read_frame_data`
             }
             Frame::Message(message) => {
-                from_connection_tx.send(NSQEvent::Message(NSQMessage {
-                    context: shared.clone(),
-                    consumed: false,
-                    body: message.body,
-                    attempt: message.attempt,
-                    id: message.id,
-                    timestamp: message.timestamp,
-                })).await?;
+                from_connection_tx
+                    .send(NSQEvent::Message(NSQMessage {
+                        context: shared.clone(),
+                        consumed: false,
+                        body: message.body,
+                        attempt: message.attempt,
+                        id: message.id,
+                        timestamp: message.timestamp,
+                    }))
+                    .await?;
 
                 shared.inflight.fetch_add(1, Ordering::SeqCst);
 
@@ -360,7 +360,7 @@ async fn write_fin<S: AsyncWrite + std::marker::Unpin>(
     id: &[u8],
 ) -> Result<(), Error> {
     stream.write_all(b"FIN ").await?;
-    stream.write_all(&id).await?;
+    stream.write_all(id).await?;
     stream.write_all(b"\n").await?;
 
     Ok(())
@@ -382,7 +382,7 @@ async fn write_touch<S: AsyncWrite + std::marker::Unpin>(
     id: &[u8],
 ) -> Result<(), Error> {
     stream.write_all(b"TOUCH ").await?;
-    stream.write_all(&id).await?;
+    stream.write_all(id).await?;
     stream.write_all(b"\n").await?;
 
     Ok(())
@@ -395,7 +395,7 @@ async fn write_auth<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(b"AUTH\n").await?;
     let count = u32::try_from(credentials.len())?.to_be_bytes();
     stream.write_all(&count).await?;
-    stream.write_all(&credentials).await?;
+    stream.write_all(credentials).await?;
     stream.flush().await?;
 
     Ok(())
@@ -418,7 +418,7 @@ async fn write_pub<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(topic.topic.as_bytes()).await?;
     stream.write_all(b"\n").await?;
     stream.write_u32(u32::try_from(body.len())?).await?;
-    stream.write_all(&body).await?;
+    stream.write_all(body).await?;
 
     Ok(())
 }
@@ -435,7 +435,7 @@ async fn write_dpub<S: AsyncWrite + std::marker::Unpin>(
     stream.write_all(delay.to_string().as_bytes()).await?;
     stream.write_all(b"\n").await?;
     stream.write_u32(u32::try_from(body.len())?).await?;
-    stream.write_all(&body).await?;
+    stream.write_all(body).await?;
 
     Ok(())
 }
@@ -458,7 +458,7 @@ async fn write_mpub<S: AsyncWrite + std::marker::Unpin>(
     for message in messages.iter() {
         let message_size = u32::try_from(message.len())?.to_be_bytes();
         stream.write_all(&message_size).await?;
-        stream.write_all(&message).await?;
+        stream.write_all(message).await?;
     }
 
     Ok(())
@@ -484,7 +484,7 @@ async fn write_req<S: AsyncWrite + std::marker::Unpin>(
     count: u128,
 ) -> Result<(), Error> {
     stream.write_all(b"REQ ").await?;
-    stream.write_all(&id).await?;
+    stream.write_all(id).await?;
     stream.write_all(b" ").await?;
     stream.write_all(count.to_string().as_bytes()).await?;
     stream.write_all(b"\n").await?;
@@ -692,7 +692,7 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 
     let user_agent = match &state.config.shared.user_agent {
         Some(user_agent) => user_agent.clone(),
-        None => "tokio_nsq/".to_string() + &built_info::PKG_VERSION.to_string(),
+        None => "tokio_nsq/".to_string() + built_info::PKG_VERSION,
     };
 
     let identify_body = IdentifyBody {
@@ -887,8 +887,10 @@ async fn run_connection(state: &mut NSQDConnectionState) -> Result<(), Error> {
 }
 
 async fn run_connection_supervisor(mut state: NSQDConnectionState) {
-    let mut backoff = backoff::ExponentialBackoff::default();
-    backoff.max_interval = state.config.shared.backoff_max_wait;
+    let mut backoff = backoff::ExponentialBackoff {
+        max_interval: state.config.shared.backoff_max_wait,
+        ..Default::default()
+    };
 
     loop {
         let now = Instant::now();
@@ -922,15 +924,14 @@ async fn run_connection_supervisor(mut state: NSQDConnectionState) {
 
         let mut drained: u64 = 0;
 
-        loop {
-            match state.to_connection_rx.recv().now_or_never().and_then(|x| x) {
-                Some(_) => {
-                    drained += 1;
-                }
-                None => {
-                    break;
-                }
-            }
+        while state
+            .to_connection_rx
+            .recv()
+            .now_or_never()
+            .and_then(|x| x)
+            .is_some()
+        {
+            drained += 1;
         }
 
         if drained != 0 {
@@ -976,7 +977,8 @@ impl NSQDConnection {
         config: NSQDConfig,
         from_connection_tx: tokio::sync::mpsc::Sender<NSQEvent>,
     ) -> NSQDConnection {
-        let (_, from_connection_rx) = tokio::sync::mpsc::channel(RX_QUEUE_CAPACITY);
+        let (_, from_connection_rx) =
+            tokio::sync::mpsc::channel(RX_QUEUE_CAPACITY);
 
         NSQDConnection::new_with_queues(
             config,
@@ -1113,20 +1115,29 @@ impl<S> TimeoutStream<S> {
 
 impl<S> AsyncRead for TimeoutStream<S>
 where
-    S: AsyncRead + Unpin
+    S: AsyncRead + Unpin,
 {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut std::task::Context, buf: &mut ReadBuf) -> Poll<Result<(), std::io::Error>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context,
+        buf: &mut ReadBuf,
+    ) -> Poll<Result<(), std::io::Error>> {
         let mut me = Pin::into_inner(self);
-        if let Poll::Ready(_) = Pin::new(&mut me.inner).poll_read(cx, buf) {
+        if Pin::new(&mut me.inner).poll_read(cx, buf).is_ready() {
             me.read_delay = None;
-            return Poll::Ready(Ok(()))
+            return Poll::Ready(Ok(()));
         }
 
         if let Some(read_timeout) = me.read_timeout {
-            let delay = me.read_delay.get_or_insert_with(|| Box::pin(sleep(read_timeout)));
+            let delay = me
+                .read_delay
+                .get_or_insert_with(|| Box::pin(sleep(read_timeout)));
 
             match delay.as_mut().poll(cx) {
-                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"))),
+                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "timeout",
+                ))),
                 Poll::Pending => Poll::Pending,
             }
         } else {
@@ -1137,20 +1148,29 @@ where
 
 impl<S> AsyncWrite for TimeoutStream<S>
 where
-    S: AsyncWrite + Unpin
+    S: AsyncWrite + Unpin,
 {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, std::io::Error>> {
         let mut me = Pin::into_inner(self);
         if let Poll::Ready(n) = Pin::new(&mut me.inner).poll_write(cx, buf) {
             me.write_delay = None;
-            return Poll::Ready(n)
+            return Poll::Ready(n);
         }
 
         if let Some(write_timeout) = me.write_timeout {
-            let delay = me.write_delay.get_or_insert_with(|| Box::pin(sleep(write_timeout)));
+            let delay = me
+                .write_delay
+                .get_or_insert_with(|| Box::pin(sleep(write_timeout)));
 
             match delay.as_mut().poll(cx) {
-                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"))),
+                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "timeout",
+                ))),
                 Poll::Pending => Poll::Pending,
             }
         } else {
@@ -1158,18 +1178,26 @@ where
         }
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), std::io::Error>> {
+    fn poll_flush(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<(), std::io::Error>> {
         let mut me = Pin::into_inner(self);
-        if let Poll::Ready(_) = Pin::new(&mut me.inner).poll_flush(cx) {
+        if Pin::new(&mut me.inner).poll_flush(cx).is_ready() {
             me.write_delay = None;
-            return Poll::Ready(Ok(()))
+            return Poll::Ready(Ok(()));
         }
 
         if let Some(write_timeout) = me.write_timeout {
-            let delay = me.write_delay.get_or_insert_with(|| Box::pin(sleep(write_timeout)));
+            let delay = me
+                .write_delay
+                .get_or_insert_with(|| Box::pin(sleep(write_timeout)));
 
             match delay.as_mut().poll(cx) {
-                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"))),
+                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "timeout",
+                ))),
                 Poll::Pending => Poll::Pending,
             }
         } else {
@@ -1177,18 +1205,26 @@ where
         }
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), std::io::Error>> {
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<(), std::io::Error>> {
         let mut me = Pin::into_inner(self);
-        if let Poll::Ready(_) = Pin::new(&mut me.inner).poll_shutdown(cx) {
+        if Pin::new(&mut me.inner).poll_shutdown(cx).is_ready() {
             me.write_delay = None;
-            return Poll::Ready(Ok(()))
+            return Poll::Ready(Ok(()));
         }
 
         if let Some(write_timeout) = me.write_timeout {
-            let delay = me.write_delay.get_or_insert_with(|| Box::pin(sleep(write_timeout)));
+            let delay = me
+                .write_delay
+                .get_or_insert_with(|| Box::pin(sleep(write_timeout)));
 
             match delay.as_mut().poll(cx) {
-                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout"))),
+                Poll::Ready(()) => Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "timeout",
+                ))),
                 Poll::Pending => Poll::Pending,
             }
         } else {
