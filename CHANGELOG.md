@@ -1,5 +1,11 @@
 # Change log
 
+## [0.14.0] - 2023-06-227
+### Changed:
+- Removed 'mut' requirement for NSQ message 'touch' command
+
+Thanks taufik-rama!
+
 ## [0.13.2] - 2023-06-21
 ### Fixed:
 - Fixed all modern clippy warnings and run cargo fmt
